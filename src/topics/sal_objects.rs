@@ -4,6 +4,8 @@ use crate::{
 };
 use std::{collections::HashMap, hash::Hash};
 
+use super::field_info;
+
 #[derive(Deserialize, Debug)]
 pub struct SALObjects {
     #[serde(rename = "SALCommandSet", default = "SALTopicSet::new")]
@@ -21,7 +23,7 @@ struct SALTopicSet {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-struct SalTopic {
+pub struct SalTopic {
     #[serde(rename = "Subsystem")]
     subsystem: String,
     #[serde(rename = "EFDB_Topic")]
@@ -59,7 +61,8 @@ fn default_int() -> usize {
 }
 
 impl SalTopic {
-    fn get_topic_name(&self) -> String {
+    /// Return topic name.
+    pub fn get_topic_name(&self) -> String {
         let efdb_name = &self.efdb_topic;
         match efdb_name.split_once("_") {
             Some((_, name)) => String::from(name),
@@ -69,7 +72,42 @@ impl SalTopic {
             ),
         }
     }
+
+    /// Get component name/subsystem.
+    pub fn get_subsystem(&self) -> String {
+        String::from(&self.subsystem)
+    }
+
+    /// Return copy of the topic description field.
+    pub fn get_description(&self) -> String {
+        String::from(&self.description)
+    }
+
+    /// Get field info for the associated items.
+    pub fn get_field_info(&self) -> HashMap<String, field_info::FieldInfo> {
+        self.item
+            .clone()
+            .into_iter()
+            .map(|item| {
+                (
+                    item.efdb_name.clone(),
+                    field_info::FieldInfo::new(
+                        &item.efdb_name,
+                        &item.idl_type,
+                        item.count,
+                        &item.units,
+                        &item.description,
+                    ),
+                )
+            })
+            .collect()
+    }
+
+    pub fn get_items(&self) -> Vec<Item> {
+        self.item.clone()
+    }
 }
+
 impl SALObjects {
     /// Get the topic names.
     pub fn get_topic_names(&self) -> HashMap<String, Vec<String>> {
