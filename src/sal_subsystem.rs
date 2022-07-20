@@ -2,7 +2,6 @@ use crate::topics::sal_objects::SALObjects;
 use crate::topics::topic_info::{self, TopicInfo};
 use crate::utils::xml_utils::read_xml_interface;
 use std::collections::HashMap;
-use std::hash::Hash;
 
 #[derive(Deserialize, Debug)]
 pub struct SALSubsystemSet {
@@ -70,22 +69,22 @@ impl SALSubsystemInfo {
     }
 
     /// Get all commands from the component, including generics.
-    pub fn get_commands(&self) -> HashMap<String, topic_info::TopicInfo> {
-        self.get_commands_generics()
+    pub fn get_commands(&self, topic_subname: &str) -> HashMap<String, topic_info::TopicInfo> {
+        self.get_commands_generics(topic_subname)
             .into_iter()
-            .chain(self.get_commands_component())
+            .chain(self.get_commands_component(topic_subname))
             .collect()
     }
     /// Get all events from the component, including generics.
-    pub fn get_events(&self) -> HashMap<String, topic_info::TopicInfo> {
-        self.get_events_generics()
+    pub fn get_events(&self, topic_subname: &str) -> HashMap<String, topic_info::TopicInfo> {
+        self.get_events_generics(topic_subname)
             .into_iter()
-            .chain(self.get_events_component())
+            .chain(self.get_events_component(topic_subname))
             .collect()
     }
     /// Get all telemetry from the component, including generics.
-    pub fn get_telemetry(&self) -> HashMap<String, topic_info::TopicInfo> {
-        self.get_telemetry_component()
+    pub fn get_telemetry(&self, topic_subname: &str) -> HashMap<String, topic_info::TopicInfo> {
+        self.get_telemetry_component(topic_subname)
     }
 
     /// Get the generic commands from the component.
@@ -96,7 +95,7 @@ impl SALSubsystemInfo {
     ///
     /// The generic commands are defined from the `AddedGenerics` attribute
     /// in the component definition anf the generics topic set.
-    fn get_commands_generics(&self) -> HashMap<String, topic_info::TopicInfo> {
+    fn get_commands_generics(&self, topic_subname: &str) -> HashMap<String, topic_info::TopicInfo> {
         let added_generics = &self.added_generics;
 
         let generic_commands = self
@@ -105,22 +104,35 @@ impl SALSubsystemInfo {
 
         generic_commands
             .into_iter()
-            .filter_map(|(name, items)| Some((name, TopicInfo::from_items(&items))))
+            .filter_map(|(name, sal_topic)| {
+                Some((
+                    name,
+                    TopicInfo::from_sal_topic(&sal_topic, topic_subname, self.indexed),
+                ))
+            })
             .collect()
     }
 
     /// Get the component telemetry topics
-    fn get_commands_component(&self) -> HashMap<String, topic_info::TopicInfo> {
+    fn get_commands_component(
+        &self,
+        topic_subname: &str,
+    ) -> HashMap<String, topic_info::TopicInfo> {
         let commands = self.sal_objects_component.get_commands();
 
         commands
             .into_iter()
-            .filter_map(|(name, items)| Some((name, TopicInfo::from_items(&items))))
+            .filter_map(|(name, sal_topic)| {
+                Some((
+                    name,
+                    TopicInfo::from_sal_topic(&sal_topic, topic_subname, self.indexed),
+                ))
+            })
             .collect()
     }
 
     /// Get the generic events from the component.
-    fn get_events_generics(&self) -> HashMap<String, topic_info::TopicInfo> {
+    fn get_events_generics(&self, topic_subname: &str) -> HashMap<String, topic_info::TopicInfo> {
         let added_generics = &self.added_generics;
 
         let generic_events = self
@@ -129,27 +141,45 @@ impl SALSubsystemInfo {
 
         generic_events
             .into_iter()
-            .filter_map(|(name, items)| Some((name, TopicInfo::from_items(&items))))
+            .filter_map(|(name, sal_topic)| {
+                Some((
+                    name,
+                    TopicInfo::from_sal_topic(&sal_topic, topic_subname, self.indexed),
+                ))
+            })
             .collect()
     }
 
     /// Get the component events topics
-    fn get_events_component(&self) -> HashMap<String, topic_info::TopicInfo> {
+    fn get_events_component(&self, topic_subname: &str) -> HashMap<String, topic_info::TopicInfo> {
         let events = self.sal_objects_component.get_events();
 
         events
             .into_iter()
-            .filter_map(|(name, items)| Some((name, TopicInfo::from_items(&items))))
+            .filter_map(|(name, sal_topic)| {
+                Some((
+                    name,
+                    TopicInfo::from_sal_topic(&sal_topic, topic_subname, self.indexed),
+                ))
+            })
             .collect()
     }
 
     /// Get the component telemetry topics
-    fn get_telemetry_component(&self) -> HashMap<String, topic_info::TopicInfo> {
+    fn get_telemetry_component(
+        &self,
+        topic_subname: &str,
+    ) -> HashMap<String, topic_info::TopicInfo> {
         let telemetry = self.sal_objects_component.get_telemetry();
 
         telemetry
             .into_iter()
-            .filter_map(|(name, items)| Some((name, TopicInfo::from_items(&items))))
+            .filter_map(|(name, sal_topic)| {
+                Some((
+                    name,
+                    TopicInfo::from_sal_topic(&sal_topic, topic_subname, self.indexed),
+                ))
+            })
             .collect()
     }
 
@@ -192,7 +222,7 @@ mod tests {
         let sal_subsystem_set = SALSubsystemSet::new();
         let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info("Test");
 
-        let commands_generics = sal_subsystem_info.get_commands_generics();
+        let commands_generics = sal_subsystem_info.get_commands_generics("unit_test");
 
         let expected_generic_commands = HashSet::from([
             String::from("SALGeneric_command_disable"),
@@ -214,7 +244,7 @@ mod tests {
         let sal_subsystem_set = SALSubsystemSet::new();
         let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info("Script");
 
-        let commands_generics = sal_subsystem_info.get_commands_generics();
+        let commands_generics = sal_subsystem_info.get_commands_generics("unit_test");
 
         let expected_generic_commands = HashSet::from([
             String::from("SALGeneric_command_setAuthList"),

@@ -4,6 +4,8 @@ use crate::{
 };
 use std::{collections::HashMap, hash::Hash};
 
+use super::field_info;
+
 #[derive(Deserialize, Debug)]
 pub struct SALObjects {
     #[serde(rename = "SALCommandSet", default = "SALTopicSet::new")]
@@ -21,7 +23,7 @@ struct SALTopicSet {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-struct SalTopic {
+pub struct SalTopic {
     #[serde(rename = "Subsystem")]
     subsystem: String,
     #[serde(rename = "EFDB_Topic")]
@@ -59,7 +61,8 @@ fn default_int() -> usize {
 }
 
 impl SalTopic {
-    fn get_topic_name(&self) -> String {
+    /// Return topic name.
+    pub fn get_topic_name(&self) -> String {
         let efdb_name = &self.efdb_topic;
         match efdb_name.split_once("_") {
             Some((_, name)) => String::from(name),
@@ -69,7 +72,42 @@ impl SalTopic {
             ),
         }
     }
+
+    /// Get component name/subsystem.
+    pub fn get_subsystem(&self) -> String {
+        String::from(&self.subsystem)
+    }
+
+    /// Return copy of the topic description field.
+    pub fn get_description(&self) -> String {
+        String::from(&self.description)
+    }
+
+    /// Get field info for the associated items.
+    pub fn get_field_info(&self) -> HashMap<String, field_info::FieldInfo> {
+        self.item
+            .clone()
+            .into_iter()
+            .map(|item| {
+                (
+                    item.efdb_name.clone(),
+                    field_info::FieldInfo::new(
+                        &item.efdb_name,
+                        &item.idl_type,
+                        item.count,
+                        &item.units,
+                        &item.description,
+                    ),
+                )
+            })
+            .collect()
+    }
+
+    pub fn get_items(&self) -> Vec<Item> {
+        self.item.clone()
+    }
 }
+
 impl SALObjects {
     /// Get the topic names.
     pub fn get_topic_names(&self) -> HashMap<String, Vec<String>> {
@@ -97,32 +135,32 @@ impl SALObjects {
     }
 
     /// Get command definitions.
-    pub fn get_commands(&self) -> HashMap<String, Vec<Item>> {
+    pub fn get_commands(&self) -> HashMap<String, SalTopic> {
         self.sal_command_set.get_items()
     }
 
     /// Get command definitions.
-    pub fn get_category_commands(&self, category: &str) -> HashMap<String, Vec<Item>> {
+    pub fn get_category_commands(&self, category: &str) -> HashMap<String, SalTopic> {
         self.sal_command_set.get_category_items(category)
     }
 
     /// Get events definitions.
-    pub fn get_events(&self) -> HashMap<String, Vec<Item>> {
+    pub fn get_events(&self) -> HashMap<String, SalTopic> {
         self.sal_event_set.get_items()
     }
 
     /// Get events definitions.
-    pub fn get_category_events(&self, category: &str) -> HashMap<String, Vec<Item>> {
+    pub fn get_category_events(&self, category: &str) -> HashMap<String, SalTopic> {
         self.sal_event_set.get_category_items(category)
     }
 
     /// Get telemetry definitions.
-    pub fn get_telemetry(&self) -> HashMap<String, Vec<Item>> {
+    pub fn get_telemetry(&self) -> HashMap<String, SalTopic> {
         self.sal_telemetry_set.get_items()
     }
 
     /// Get telemetry definitions.
-    pub fn get_category_telemetry(&self, category: &str) -> HashMap<String, Vec<Item>> {
+    pub fn get_category_telemetry(&self, category: &str) -> HashMap<String, SalTopic> {
         self.sal_telemetry_set.get_category_items(category)
     }
 
@@ -163,27 +201,27 @@ impl SALTopicSet {
     }
 
     /// Get items from topic set.
-    fn get_items(&self) -> HashMap<String, Vec<Item>> {
-        let items: Vec<(String, Vec<Item>)> = Vec::clone(&self.topic_set)
-            .iter()
-            .map(|s| (s.efdb_topic.clone(), s.item.clone()))
-            .collect();
-
-        HashMap::from_iter(items)
+    fn get_items(&self) -> HashMap<String, SalTopic> {
+        self.topic_set
+            .clone()
+            .into_iter()
+            .map(|topic| (topic.efdb_topic.clone(), topic))
+            .collect()
     }
 
     /// Get items from topic set.
-    fn get_category_items(&self, category: &str) -> HashMap<String, Vec<Item>> {
-        let items: Vec<(String, Vec<Item>)> = Vec::clone(&self.topic_set)
-            .iter()
-            .filter(|sal_topic| {
-                category.contains(&sal_topic.category)
-                    | category.contains(&sal_topic.get_topic_name())
+    fn get_category_items(&self, category: &str) -> HashMap<String, SalTopic> {
+        self.topic_set
+            .clone()
+            .into_iter()
+            .filter_map(|topic| {
+                if category.contains(&topic.category) | category.contains(&topic.get_topic_name()) {
+                    Some((topic.efdb_topic.clone(), topic))
+                } else {
+                    None
+                }
             })
-            .map(|s| (s.efdb_topic.clone(), s.item.clone()))
-            .collect();
-        //.filter(|line| !line.contains("?xml"))
-        HashMap::from_iter(items)
+            .collect()
     }
 }
 
@@ -269,6 +307,7 @@ mod tests {
         let expected_items = vec!["ack", "duration"];
 
         let items: Vec<String> = test_command_wait
+            .get_items()
             .iter()
             .map(|item| item.efdb_name.clone())
             .collect();
@@ -288,6 +327,7 @@ mod tests {
         let expected_items = vec!["configurationOverride"];
 
         let items: Vec<String> = generic_command_start
+            .get_items()
             .iter()
             .map(|item| item.efdb_name.clone())
             .collect();
