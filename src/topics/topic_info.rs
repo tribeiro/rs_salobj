@@ -25,6 +25,17 @@ impl TopicInfo {
         }
     }
 
+    pub fn get_ackcmd(component_name: &str, topic_subname: &str, indexed: bool) -> TopicInfo {
+        TopicInfo {
+            component_name: String::from(component_name),
+            topic_subname: String::from(topic_subname),
+            sal_name: String::from("ackcmd"),
+            fields: TopicInfo::get_ackcmd_fields(indexed),
+            description: String::from("Command acknowledgement"),
+            partitions: 1,
+        }
+    }
+
     /// Create topic info from `SalTopic`.
     pub fn from_sal_topic(sal_topic: &SalTopic, topic_subname: &str, indexed: bool) -> TopicInfo {
         let private_fields = TopicInfo::get_private_fields(indexed);
@@ -39,6 +50,10 @@ impl TopicInfo {
             description: sal_topic.get_description(),
             partitions: 1,
         }
+    }
+
+    pub fn get_sal_name(&self) -> String {
+        return self.sal_name.clone();
     }
 
     /// Get private fields.
@@ -262,5 +277,36 @@ mod tests {
     #[test]
     fn get_ackcmd_fields_not_indexed() {
         assert!(check_ackcmd_fields_indexed(false))
+    }
+
+    #[test]
+    fn get_ackcmd_indexed() {
+        let ack_cmd = TopicInfo::get_ackcmd("Test", "unit_test", true);
+
+        let expected_ackcmd_field = get_expected_ackcmd_fields(true);
+
+        assert_eq!(ack_cmd.component_name, "Test");
+        assert_eq!(ack_cmd.topic_subname, "unit_test");
+        assert_eq!(ack_cmd.sal_name, "ackcmd");
+        assert_eq!(ack_cmd.description, "Command acknowledgement");
+        assert_eq!(
+            expected_ackcmd_field,
+            ack_cmd.fields.keys().cloned().collect()
+        );
+    }
+
+    #[test]
+    fn get_ackcmd_not_indexed() {
+        let ack_cmd = TopicInfo::get_ackcmd("Test", "unit_test", false);
+
+        let expected_ackcmd_field = get_expected_ackcmd_fields(false);
+
+        assert_eq!(ack_cmd.component_name, "Test");
+        assert_eq!(ack_cmd.topic_subname, "unit_test");
+        assert_eq!(ack_cmd.description, "Command acknowledgement");
+        assert_eq!(
+            expected_ackcmd_field,
+            ack_cmd.fields.keys().cloned().collect()
+        );
     }
 }
