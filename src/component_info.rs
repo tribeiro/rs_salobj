@@ -21,7 +21,7 @@ impl ComponentInfo {
         let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info(name);
 
         let component_commands: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
-            .get_commands()
+            .get_commands(topic_subname)
             .into_iter()
             .filter_map(|(topic_name, items)| {
                 Some((topic_name.replace("SALGeneric", &name), items))
@@ -29,7 +29,7 @@ impl ComponentInfo {
             .collect();
 
         let component_events: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
-            .get_events()
+            .get_events(topic_subname)
             .into_iter()
             .filter_map(|(topic_name, items)| {
                 Some((topic_name.replace("SALGeneric", &name), items))
@@ -37,7 +37,7 @@ impl ComponentInfo {
             .collect();
 
         let component_telemetry: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
-            .get_telemetry()
+            .get_telemetry(topic_subname)
             .into_iter()
             .filter_map(|(topic_name, items)| {
                 Some((topic_name.replace("SALGeneric", &name), items))
