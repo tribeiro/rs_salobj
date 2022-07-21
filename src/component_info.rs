@@ -10,6 +10,7 @@ pub struct ComponentInfo {
     topic_subname: String,
     description: String,
     indexed: bool,
+    ack_cmd: topic_info::TopicInfo,
     commands: HashMap<String, topic_info::TopicInfo>,
     events: HashMap<String, topic_info::TopicInfo>,
     telemetry: HashMap<String, topic_info::TopicInfo>,
@@ -49,6 +50,11 @@ impl ComponentInfo {
             topic_subname: String::from(topic_subname),
             description: sal_subsystem_info.get_description(),
             indexed: sal_subsystem_info.is_indexed(),
+            ack_cmd: topic_info::TopicInfo::get_ackcmd(
+                name,
+                topic_subname,
+                sal_subsystem_info.is_indexed(),
+            ),
             commands: component_commands,
             events: component_events,
             telemetry: component_telemetry,
@@ -65,6 +71,8 @@ mod tests {
     #[test]
     fn create_test_component_info() {
         let component_info = ComponentInfo::new("Test", "unit_test");
+        let component_info_commands: Vec<&String> =
+            component_info.commands.keys().into_iter().collect();
 
         assert_eq!(component_info.name, "Test");
         assert_eq!(component_info.topic_subname, "unit_test");
@@ -73,8 +81,7 @@ mod tests {
             component_info.description,
             "A SAL component designed to support testing SAL itself."
         );
-        let component_info_commands: Vec<&String> =
-            component_info.commands.keys().into_iter().collect();
+        assert_eq!(component_info.ack_cmd.get_sal_name(), "ackcmd");
         assert!(
             component_info.commands.contains_key("Test_command_start"),
             "{}",
