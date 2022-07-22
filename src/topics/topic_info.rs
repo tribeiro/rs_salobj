@@ -56,6 +56,10 @@ impl TopicInfo {
         return self.sal_name.clone();
     }
 
+    pub fn get_fields_name(&self) -> HashSet<String> {
+        self.fields.keys().cloned().collect()
+    }
+
     /// Get private fields.
     fn get_private_fields(indexed: bool) -> HashMap<String, field_info::FieldInfo> {
         let private_fields = HashMap::from([
