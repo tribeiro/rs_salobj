@@ -1,6 +1,7 @@
 use crate::sal_subsystem;
-use crate::topics::topic_info;
+use crate::topics::topic_info::{self, AvroSchema, TopicInfo};
 use std::collections::HashMap;
+use std::hash::Hash;
 extern crate serde;
 extern crate serde_xml_rs;
 
@@ -17,7 +18,7 @@ pub struct ComponentInfo {
 }
 
 impl ComponentInfo {
-    fn new(name: &str, topic_subname: &str) -> ComponentInfo {
+    pub fn new(name: &str, topic_subname: &str) -> ComponentInfo {
         let sal_subsystem_set = sal_subsystem::SALSubsystemSet::new();
         let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info(name);
 
@@ -60,6 +61,30 @@ impl ComponentInfo {
             telemetry: component_telemetry,
         }
     }
+
+    /// Make avro schema for all topics in the component.
+    pub fn make_avro_schema(&self) -> HashMap<String, AvroSchema> {
+        HashMap::from([("ackcmd".to_owned(), self.ack_cmd.make_avro_schema())])
+            .into_iter()
+            .chain(ComponentInfo::make_avro_schema_for_topic_set(
+                &self.commands,
+            ))
+            .chain(ComponentInfo::make_avro_schema_for_topic_set(&self.events))
+            .chain(ComponentInfo::make_avro_schema_for_topic_set(
+                &self.telemetry,
+            ))
+            .collect()
+    }
+
+    /// Make avro schema for a set of topics (a hashmap of topic_name, topic_info).
+    fn make_avro_schema_for_topic_set(
+        topic_set: &HashMap<String, TopicInfo>,
+    ) -> HashMap<String, AvroSchema> {
+        topic_set
+            .iter()
+            .map(|(topic_name, topic_info)| (topic_name.to_owned(), topic_info.make_avro_schema()))
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -67,6 +92,8 @@ impl ComponentInfo {
 mod tests {
 
     use super::*;
+    use avro_rs::{types::Record, Schema};
+    use std::collections::HashSet;
 
     #[test]
     fn create_test_component_info() {
@@ -99,5 +126,42 @@ mod tests {
             .contains_key("Test_logevent_heartbeat"));
         assert!(component_info.events.contains_key("Test_logevent_scalars"));
         assert!(component_info.telemetry.contains_key("Test_scalars"));
+    }
+
+    #[test]
+    fn make_avro_schema() {
+        let component_info = ComponentInfo::new("Test", "unit_test");
+
+        let avro_schema = component_info.make_avro_schema();
+        let avro_schema: HashMap<String, Schema> = component_info
+            .make_avro_schema()
+            .into_iter()
+            .map(|(name, schema)| {
+                (
+                    name.to_owned(),
+                    Schema::parse_str(&serde_json::to_string(&schema).unwrap()).unwrap(),
+                )
+            })
+            .collect();
+
+        let heartbeat_schema = avro_schema.get("Test_logevent_heartbeat").unwrap();
+        let heartbeat_record = Record::new(&heartbeat_schema).unwrap();
+
+        let record_fields: HashSet<String> = heartbeat_record
+            .fields
+            .into_iter()
+            .map(|(field, _)| field)
+            .collect();
+        let expected_fields = HashSet::from([
+            String::from("salIndex"),
+            String::from("private_sndStamp"),
+            String::from("private_rcvStamp"),
+            String::from("private_seqNum"),
+            String::from("private_identity"),
+            String::from("private_origin"),
+            String::from("heartbeat"),
+        ]);
+
+        assert_eq!(record_fields, expected_fields)
     }
 }

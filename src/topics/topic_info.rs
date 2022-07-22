@@ -1,6 +1,6 @@
 use crate::topics::field_info;
-use crate::topics::sal_objects::{Item, SalTopic};
-use std::collections::HashMap;
+use crate::topics::sal_objects::SalTopic;
+use std::collections::{HashMap, HashSet};
 
 /// Information about one topic.
 pub struct TopicInfo {
@@ -10,6 +10,17 @@ pub struct TopicInfo {
     fields: HashMap<String, field_info::FieldInfo>,
     description: String,
     partitions: usize,
+}
+
+/// Avro schema for topics
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AvroSchema {
+    #[serde(rename = "type")]
+    avro_message_type: String,
+    name: String,
+    namespace: String,
+    fields: Vec<field_info::AvroSchemaField>,
+    description: String,
 }
 
 impl TopicInfo {
@@ -54,6 +65,28 @@ impl TopicInfo {
 
     pub fn get_sal_name(&self) -> String {
         return self.sal_name.clone();
+    }
+
+    pub fn get_fields_name(&self) -> HashSet<String> {
+        self.fields.keys().cloned().collect()
+    }
+
+    /// Make avro schema fpr the topic.
+    pub fn make_avro_schema(&self) -> AvroSchema {
+        let topic_subname = &self.topic_subname;
+        let component_name = &self.component_name;
+
+        AvroSchema {
+            avro_message_type: "record".to_owned(),
+            name: self.sal_name.to_owned(),
+            namespace: format!("lsst.sal.{topic_subname}.{component_name}"),
+            fields: self
+                .fields
+                .iter()
+                .map(|(_, field_info)| field_info.make_avro_schema())
+                .collect(),
+            description: self.description.to_owned(),
+        }
     }
 
     /// Get private fields.
@@ -206,6 +239,7 @@ impl TopicInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use avro_rs::{types::Record, Schema};
     use std::collections::HashSet;
 
     fn get_expected_ackcmd_fields(indexed: bool) -> HashSet<String> {
@@ -308,5 +342,18 @@ mod tests {
             expected_ackcmd_field,
             ack_cmd.fields.keys().cloned().collect()
         );
+    }
+
+    #[test]
+    fn make_avro_schema() {
+        let ack_cmd = TopicInfo::get_ackcmd("Test", "unit_test", false);
+        let ack_cmd_schema = serde_json::to_string(&ack_cmd.make_avro_schema()).unwrap();
+        let schema = Schema::parse_str(&ack_cmd_schema).unwrap();
+        let record = Record::new(&schema).unwrap();
+
+        let record_fields: HashSet<String> =
+            record.fields.into_iter().map(|(field, _)| field).collect();
+        let expected_fields = ack_cmd.get_fields_name();
+        assert_eq!(record_fields, expected_fields)
     }
 }
