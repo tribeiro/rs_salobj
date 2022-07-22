@@ -1,3 +1,5 @@
+use std::fmt;
+
 extern crate serde;
 
 #[derive(Deserialize, Debug)]
@@ -34,8 +36,27 @@ pub struct FieldInfo {
     default_scalar_value: SalType,
 }
 
-impl FieldInfo {
+impl fmt::Display for SalType {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SalType::SalBool(val) => write!(f, "{}", val),
+            SalType::SalByte(val) => write!(f, "{}", val),
+            SalType::SalShort(val) => write!(f, "{}", val),
+            SalType::SalInt(val) => write!(f, "{}", val),
+            SalType::SalLong(val) => write!(f, "{}", val),
+            SalType::SalLongLong(val) => write!(f, "{}", val),
+            SalType::SalUnsignedShort(val) => write!(f, "{}", val),
+            SalType::SalUnsignedInt(val) => write!(f, "{}", val),
+            SalType::SalUnsignedLong(val) => write!(f, "{}", val),
+            SalType::SalFloat(val) => write!(f, "{}", val),
+            SalType::SalDouble(val) => write!(f, "{}", val),
+            SalType::SalString(val) => write!(f, "{}", val),
+        }
+    }
+}
 
+impl FieldInfo {
     /// Create new FieldInfo.
     pub fn new(
         name: &str,
