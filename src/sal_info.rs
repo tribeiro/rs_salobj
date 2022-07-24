@@ -1,6 +1,8 @@
 use crate::component_info::ComponentInfo;
 use crate::domain;
+use crate::sal_enums;
 use avro_rs::{
+    types::{Record, Value},
     Schema,
 };
 use std::collections::HashMap;
@@ -48,6 +50,29 @@ impl<'a> SalInfo<'a> {
             telemetry_names: Vec::new(),
             component_info: component_info,
             topic_schema: topic_schema,
+
+    /// Make an AckCmd `Record` from keyword arguments.
+    ///
+    /// A `Record` is an object that is built from the avro schema and,
+    /// therefore, can be published directly afterwards.
+    pub fn make_ackcmd(
+        &self,
+        private_seqnum: i32,
+        ack: sal_enums::SalRetCode,
+        error: i32,
+        result: &str,
+        timeout: f32,
+    ) -> Record {
+        let mut record = Record::new(&self.topic_schema.get("ackcmd").unwrap()).unwrap();
+        record.put("private_seqNum", Value::Int(private_seqnum));
+        record.put("ack", Value::Int(ack as i32));
+        record.put("error", Value::Int(error));
+        record.put("result", Value::String(result.to_owned()));
+        record.put("timeout", Value::Float(timeout));
+
+        record
+    }
+
     /// Is the component indexed?
     pub fn is_indexed(&self) -> bool {
         self.component_info.is_indexed()
@@ -136,5 +161,43 @@ mod tests {
         let sal_info = SalInfo::new(domain, "ATMCS", 0);
 
         assert_eq!(sal_info.get_name_index(), "ATMCS")
+    }
+
+    #[test]
+    fn make_ackcmd() {
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
+        let sal_info = SalInfo::new(domain, "Test", 1);
+
+        let ackcmd = sal_info.make_ackcmd(
+            12345,
+            sal_enums::SalRetCode::CmdComplete,
+            0,
+            "Command completed successfully.",
+            60.0,
+        );
+
+        let fields: HashMap<String, Value> = ackcmd.fields.into_iter().collect();
+
+        let private_seqnum = match fields.get("private_seqNum").unwrap() {
+            Value::Int(value) => value.to_owned(),
+            _ => panic!("wrong type for private_seqNum."),
+        };
+        let ack = match fields.get("ack").unwrap() {
+            Value::Int(value) => value.to_owned(),
+            _ => panic!("wrong type for ack."),
+        };
+        let result = match fields.get("result").unwrap() {
+            Value::String(value) => value.to_owned(),
+            _ => panic!("wrong type for result."),
+        };
+        let timeout = match fields.get("timeout").unwrap() {
+            Value::Float(value) => value.to_owned(),
+            _ => panic!("wrong type for timeout."),
+        };
+
+        assert_eq!(private_seqnum, 12345 as i32);
+        assert_eq!(ack, sal_enums::SalRetCode::CmdComplete as i32);
+        assert_eq!(result, "Command completed successfully.");
+        assert_eq!(timeout, 60.0);
     }
 }
