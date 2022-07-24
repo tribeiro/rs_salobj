@@ -1,5 +1,9 @@
 use crate::component_info::ComponentInfo;
 use crate::domain;
+use avro_rs::{
+    Schema,
+};
+use std::collections::HashMap;
 use std::env;
 
 ///Information for one SAL component and index.
@@ -8,6 +12,7 @@ pub struct SalInfo<'a> {
     name: String,
     index: usize,
     component_info: ComponentInfo,
+    topic_schema: HashMap<String, Schema>,
 }
 
 impl<'a> SalInfo<'a> {
@@ -23,6 +28,17 @@ impl<'a> SalInfo<'a> {
             panic!("Invalid index={index}. Component {name} is not indexed. Index must be 0.")
         }
 
+        let topic_schema = component_info
+            .make_avro_schema()
+            .into_iter()
+            .map(|(topic, avro_schema)| {
+                (
+                    topic.to_owned(),
+                    Schema::parse_str(&serde_json::to_string(&avro_schema).unwrap()).unwrap(),
+                )
+            })
+            .collect();
+
             domain: domain,
             name: name,
             name: name.to_owned(),
@@ -31,6 +47,7 @@ impl<'a> SalInfo<'a> {
             event_names: Vec::new(),
             telemetry_names: Vec::new(),
             component_info: component_info,
+            topic_schema: topic_schema,
     /// Is the component indexed?
     pub fn is_indexed(&self) -> bool {
         self.component_info.is_indexed()
