@@ -1,7 +1,9 @@
 use crate::domain;
 use crate::sal_info;
 use crate::topics::{remote_command, remote_event, remote_telemetry};
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Handle operations on a remote SAL object.
 /// This object can execute commands to and receive telemetry and events from
@@ -9,30 +11,30 @@ use std::collections::HashMap;
 ///
 /// If a SAL component listens to or commands other SAL components
 /// then it will have one Remote for each such component.
-pub struct Remote<'a> {
+pub struct Remote {
     name: String,
     index: usize,
-    sal_info: sal_info::SalInfo<'a>,
+    sal_info: Rc<sal_info::SalInfo>,
     commands: HashMap<String, remote_command::RemoteCommand>,
     events: HashMap<String, remote_event::RemoteEvent>,
     telemetry: HashMap<String, remote_telemetry::RemoteTelemetry>,
     started: bool,
 }
 
-impl<'a> Remote<'a> {
+impl Remote {
     pub fn new(
-        domain: &'a mut domain::Domain,
-        name: &'a str,
-        index: &'a usize,
+        domain: Rc<RefCell<domain::Domain>>,
+        name: &str,
+        index: &usize,
         readonly: bool,
         include: Vec<String>,
         exclude: Vec<String>,
         evt_max_history: usize,
-    ) -> Remote<'a> {
+    ) -> Remote {
         let mut remote = Remote {
             name: String::from(name),
             index: index.clone(),
-            sal_info: sal_info::SalInfo::new(domain, name, &index),
+            sal_info: sal_info::SalInfo::new(domain, name, *index),
             commands: HashMap::new(),
             events: HashMap::new(),
             telemetry: HashMap::new(),
@@ -44,10 +46,10 @@ impl<'a> Remote<'a> {
     }
 
     pub fn from_name_index(
-        domain: &'a mut domain::Domain,
-        name: &'a str,
-        index: &'a usize,
-    ) -> Remote<'a> {
+        domain: Rc<RefCell<domain::Domain>>,
+        name: &str,
+        index: &usize,
+    ) -> Remote {
         Remote::new(domain, name, index, true, Vec::new(), Vec::new(), 1)
     }
 
@@ -172,20 +174,20 @@ mod tests {
     use super::*;
     #[test]
     fn test_get_name() {
-        let mut d = domain::Domain {};
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(&mut d, name, &index);
+        let remote = Remote::from_name_index(domain, name, &index);
 
         assert_eq!("Test", remote.get_name())
     }
 
     #[test]
     fn test_get_index() {
-        let mut d = domain::Domain {};
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(&mut d, name, &index);
+        let remote = Remote::from_name_index(domain, name, &index);
 
         assert_eq!(index, remote.get_index());
     }
@@ -193,10 +195,10 @@ mod tests {
     #[test]
     #[should_panic(expected = "include_only and exclude can not both have elements.")]
     fn test_get_events_name_panic_if_include_and_exclude() {
-        let mut d = domain::Domain {};
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(&mut d, name, &index);
+        let remote = Remote::from_name_index(domain, name, &index);
 
         let include_only = vec![String::from("event1")];
         let exclude = vec![String::from("event2")];
@@ -207,10 +209,10 @@ mod tests {
     #[test]
     #[should_panic(expected = "include_only and exclude can not both have elements.")]
     fn test_get_telemetry_names_panic_if_include_and_exclude() {
-        let mut d = domain::Domain {};
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(&mut d, name, &index);
+        let remote = Remote::from_name_index(domain, name, &index);
 
         let include_only = vec![String::from("telemtry1")];
         let exclude = vec![String::from("telemetry2")];
@@ -221,10 +223,10 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_start_when_started() {
-        let mut d = domain::Domain {};
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
         let name = "Test";
         let index = 1;
-        let mut remote = Remote::from_name_index(&mut d, name, &index);
+        let mut remote = Remote::from_name_index(domain, name, &index);
 
         remote.start(false, Vec::new(), Vec::new(), 1);
     }
@@ -232,10 +234,10 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_create_commands_when_started() {
-        let mut d = domain::Domain {};
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
         let name = "Test";
         let index = 1;
-        let mut remote = Remote::from_name_index(&mut d, name, &index);
+        let mut remote = Remote::from_name_index(domain, name, &index);
 
         remote.create_commmands();
     }
@@ -243,10 +245,10 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_create_events_when_started() {
-        let mut d = domain::Domain {};
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
         let name = "Test";
         let index = 1;
-        let mut remote = Remote::from_name_index(&mut d, name, &index);
+        let mut remote = Remote::from_name_index(domain, name, &index);
 
         let events_name = vec![];
 
@@ -256,10 +258,10 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_create_telemetry_when_started() {
-        let mut d = domain::Domain {};
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
         let name = "Test";
         let index = 1;
-        let mut remote = Remote::from_name_index(&mut d, name, &index);
+        let mut remote = Remote::from_name_index(domain, name, &index);
 
         let telemetry_names = vec![];
         remote.create_telemetry(&telemetry_names);

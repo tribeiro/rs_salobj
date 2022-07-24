@@ -62,6 +62,38 @@ impl ComponentInfo {
         }
     }
 
+    /// Get command names.
+    pub fn get_command_names(&self) -> Vec<String> {
+        self.commands
+            .keys()
+            .into_iter()
+            .map(|topic| topic.to_owned())
+            .collect()
+    }
+
+    /// Get event names.
+    pub fn get_event_names(&self) -> Vec<String> {
+        self.events
+            .keys()
+            .into_iter()
+            .map(|topic| topic.to_owned())
+            .collect()
+    }
+
+    /// Get telemetry names.
+    pub fn get_telemetry_names(&self) -> Vec<String> {
+        self.telemetry
+            .keys()
+            .into_iter()
+            .map(|topic| topic.to_owned())
+            .collect()
+    }
+
+    /// Is the component index?
+    pub fn is_indexed(&self) -> bool {
+        self.indexed
+    }
+
     /// Make avro schema for all topics in the component.
     pub fn make_avro_schema(&self) -> HashMap<String, AvroSchema> {
         HashMap::from([("ackcmd".to_owned(), self.ack_cmd.make_avro_schema())])
@@ -88,7 +120,6 @@ impl ComponentInfo {
 }
 
 #[cfg(test)]
-
 mod tests {
 
     use super::*;

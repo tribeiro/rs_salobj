@@ -28,6 +28,7 @@ mod component_info;
 mod domain;
 mod error;
 mod remote;
+mod sal_enums;
 mod sal_info;
 mod sal_subsystem;
 mod topics;
