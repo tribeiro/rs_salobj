@@ -7,19 +7,30 @@ use avro_rs::{
 };
 use std::collections::HashMap;
 use std::env;
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 ///Information for one SAL component and index.
-pub struct SalInfo<'a> {
-    domain: &'a mut domain::Domain,
+pub struct SalInfo {
+    domain: Rc<RefCell<domain::Domain>>,
     name: String,
     index: usize,
     component_info: ComponentInfo,
     topic_schema: HashMap<String, Schema>,
 }
 
-impl<'a> SalInfo<'a> {
-    pub fn new(domain: &'a mut domain::Domain, name: &'a str, index: &'a usize) -> SalInfo<'a> {
-        SalInfo {
+impl SalInfo {
+    /// Create a Reference Counted (Rc) instance of `SalInfo`.
+    ///
+    /// When creating an instance of `SalInfo` we require a Reference Counted
+    /// Mutable Memory location instance of a `Domain` object (e.g.
+    /// Rc<RefCell<Domain>>). The `Domain` contains information that is shared
+    /// between a series of `SalInfo` and, as such it keeps a week reference
+    /// of all `SalInfo` instances attached to it. Therefore, the only one
+    /// to create an instance of `SalInfo` is to wrap it with an `Rc`.
+    pub fn new(domain: Rc<RefCell<domain::Domain>>, name: &str, index: usize) -> Rc<SalInfo> {
         let topic_subname = match env::var("LSST_TOPIC_SUBNAME") {
             Ok(val) => val,
             Err(_) => panic!("You must define environment variable LSST_TOPIC_SUBNAME"),
@@ -41,11 +52,18 @@ impl<'a> SalInfo<'a> {
             })
             .collect();
 
+        let sal_info = Rc::new(SalInfo {
             domain: domain,
             name: name.to_owned(),
             index: index,
             component_info: component_info,
             topic_schema: topic_schema,
+        });
+
+        sal_info.domain.borrow().add_salinfo(&sal_info);
+
+        sal_info
+    }
 
     /// Make an AckCmd `Record` from keyword arguments.
     ///
