@@ -42,12 +42,8 @@ impl<'a> SalInfo<'a> {
             .collect();
 
             domain: domain,
-            name: name,
             name: name.to_owned(),
             index: index,
-            command_names: Vec::new(),
-            event_names: Vec::new(),
-            telemetry_names: Vec::new(),
             component_info: component_info,
             topic_schema: topic_schema,
 
