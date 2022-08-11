@@ -7,10 +7,7 @@ use avro_rs::{
 };
 use std::collections::HashMap;
 use std::env;
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+use std::{cell::RefCell, rc::Rc};
 
 ///Information for one SAL component and index.
 pub struct SalInfo {
