@@ -1,3 +1,4 @@
+pub mod base_topic;
 pub mod field_info;
 pub mod read_topic;
 pub mod remote_command;
