@@ -1,6 +1,7 @@
 use crate::component_info::ComponentInfo;
 use crate::domain;
 use crate::sal_enums;
+use crate::topics::topic_info::TopicInfo;
 use avro_rs::{
     types::{Record, Value},
     Schema,
@@ -114,6 +115,72 @@ impl SalInfo {
     pub fn get_telemetry_names(&self) -> Vec<String> {
         self.component_info.get_telemetry_names()
     }
+
+    /// Get topic info for a particular topic.
+    ///
+    /// This high-level method will identify if a topic is a command, event,
+    /// telemetry or ackcmd and return the appropriate TopicInfo.
+    pub fn get_topic_info(&self, topic_name: &str) -> Option<&TopicInfo> {
+        if self.is_ackcmd(topic_name) {
+            Some(self.component_info.get_ackcmd_topic_info())
+        } else if self.is_command(topic_name) {
+            self.get_command_topic_info(topic_name)
+        } else if self.is_event(topic_name) {
+            self.get_event_topic_info(topic_name)
+        } else {
+            self.get_telemetry_topic_info(topic_name)
+        }
+    }
+
+    /// Check if topic name matches command acknowledgement.
+    fn is_ackcmd(&self, topic_name: &str) -> bool {
+        topic_name == "ackcmd"
+    }
+
+    /// Check if topic name matches command name.
+    ///
+    /// This method does not test if the topic is a valid topic from the
+    /// component.
+    fn is_command(&self, topic_name: &str) -> bool {
+        topic_name.contains("_command_")
+    }
+
+    /// Check if topic name matches event name.
+    ///
+    /// This method does not test if the topic is a valid topic from the
+    /// component.
+    fn is_event(&self, topic_name: &str) -> bool {
+        topic_name.contains("_logevent_")
+    }
+
+    /// Get topic info for a particular command.
+    fn get_command_topic_info(&self, command_name: &str) -> Option<&TopicInfo> {
+        self.component_info.get_command_topic_info(command_name)
+    }
+
+    /// Get topic info for a particular event.
+    fn get_event_topic_info(&self, event_name: &str) -> Option<&TopicInfo> {
+        self.component_info.get_event_topic_info(event_name)
+    }
+
+    /// Get topic info for a particular telemetry.
+    fn get_telemetry_topic_info(&self, telemetry_name: &str) -> Option<&TopicInfo> {
+        self.component_info.get_telemetry_topic_info(telemetry_name)
+    }
+
+    /// Get schema for topic.
+    pub fn get_topic_schema(&self, topic_name: &str) -> Option<&Schema> {
+        self.topic_schema.get(topic_name)
+    }
+
+    /// Assert that a topic name is a valid topic for this component.
+    ///
+    /// # Panic
+    ///
+    /// If topic name is not part of the component.
+    pub fn assert_is_valid_topic(&self, topic_name: &str) {
+        assert!(self.topic_schema.contains_key(topic_name))
+    }
 }
 
 #[cfg(test)]
@@ -210,5 +277,90 @@ mod tests {
         assert_eq!(ack, sal_enums::SalRetCode::CmdComplete as i32);
         assert_eq!(result, "Command completed successfully.");
         assert_eq!(timeout, 60.0);
+    }
+
+    #[test]
+    fn assert_is_valid_topic_with_valid_topic() {
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
+        let sal_info = SalInfo::new(domain, "Test", 1);
+
+        sal_info.assert_is_valid_topic("Test_logevent_scalars")
+    }
+
+    #[test]
+    #[should_panic]
+    fn assert_is_valid_topic_with_invalid_topic() {
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
+        let sal_info = SalInfo::new(domain, "Test", 1);
+
+        sal_info.assert_is_valid_topic("Test_logevent_badTopicName")
+    }
+
+    #[test]
+    fn get_topic_info_ackcmd() {
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
+        let sal_info = SalInfo::new(domain, "Test", 1);
+
+        // This will panic if fails to get ackcmd
+        sal_info.get_topic_info(&"ackcmd").unwrap();
+    }
+
+    #[test]
+    fn get_topic_info_command() {
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
+        let sal_info = SalInfo::new(domain, "Test", 1);
+
+        // This will panic if fails to get command
+        sal_info.get_topic_info(&"Test_command_start").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_topic_info_bad_command() {
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
+        let sal_info = SalInfo::new(domain, "Test", 1);
+
+        // This will panic if fails to get command
+        sal_info.get_topic_info(&"Test_command_startBad").unwrap();
+    }
+
+    #[test]
+    fn get_topic_info_event() {
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
+        let sal_info = SalInfo::new(domain, "Test", 1);
+
+        // This will panic if fails to get event
+        sal_info.get_topic_info(&"Test_logevent_scalars").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_topic_info_bad_event() {
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
+        let sal_info = SalInfo::new(domain, "Test", 1);
+
+        // This will panic if fails to get event
+        sal_info
+            .get_topic_info(&"Test_logevent_scalarsBad")
+            .unwrap();
+    }
+
+    #[test]
+    fn get_topic_info_telemetry() {
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
+        let sal_info = SalInfo::new(domain, "Test", 1);
+
+        // This will panic if fails to get telemetry
+        sal_info.get_topic_info(&"Test_scalars").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_topic_info_bad_telemetry() {
+        let domain = Rc::new(RefCell::new(domain::Domain::new()));
+        let sal_info = SalInfo::new(domain, "Test", 1);
+
+        // This will panic if fails to get telemetry
+        sal_info.get_topic_info(&"Test_scalarsBad").unwrap();
     }
 }
