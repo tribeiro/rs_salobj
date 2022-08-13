@@ -71,7 +71,7 @@ impl TopicInfo {
         self.fields.keys().cloned().collect()
     }
 
-    /// Make avro schema fpr the topic.
+    /// Make avro schema for the topic.
     pub fn make_avro_schema(&self) -> AvroSchema {
         let topic_subname = &self.topic_subname;
         let component_name = &self.component_name;
@@ -87,6 +87,12 @@ impl TopicInfo {
                 .collect(),
             description: self.description.to_owned(),
         }
+    }
+
+    /// Make schema for the topic.
+    pub fn make_schema(&self) -> avro_rs::Schema {
+        avro_rs::Schema::parse_str(&serde_json::to_string(&self.make_avro_schema()).unwrap())
+            .unwrap()
     }
 
     /// Get private fields.

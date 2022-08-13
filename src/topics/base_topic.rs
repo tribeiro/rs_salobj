@@ -4,7 +4,7 @@ use avro_rs::{types::Record, Schema};
 /// A trait that represents base topic interface.
 pub trait BaseTopic {
     /// Return reference to TopicInfo.
-    /// 
+    ///
     /// Any implementation of BaseTopic must contain an instance of TopicInfo.
     fn get_topic_info(&self) -> &TopicInfo;
 
@@ -16,20 +16,8 @@ pub trait BaseTopic {
         self.get_topic_info().get_sal_name()
     }
 
-    /// Make avro schema.
-    /// 
-    /// This method creates the topic avro schema using its `TopicInfo`.
-    /// Using this method every time you want to create a topic can be
-    /// expensive so it is better to store a local copy and return a borrowed
-    /// reference using `get_avro_schema`.
-    fn make_avro_schema(&self) -> Schema {
-        let topic_schema =
-            serde_json::to_string(&self.get_topic_info().make_avro_schema()).unwrap();
-        Schema::parse_str(&topic_schema).unwrap()
-    }
-
     /// Get avro schema.
-    /// 
+    ///
     /// This method returns a borrow copy of the topic Schema. When implementing
     /// `BaseTopic`, use `make_avro_schema` to store the topic schema and this
     /// method to return it. This will make the code faster for runtime topic

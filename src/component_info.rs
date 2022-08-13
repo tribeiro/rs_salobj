@@ -62,6 +62,11 @@ impl ComponentInfo {
         }
     }
 
+    /// Get ackcmd topic info.
+    pub fn get_ackcmd_topic_info(&self) -> &TopicInfo {
+        &self.ack_cmd
+    }
+
     /// Get command names.
     pub fn get_command_names(&self) -> Vec<String> {
         self.commands
@@ -69,6 +74,11 @@ impl ComponentInfo {
             .into_iter()
             .map(|topic| topic.to_owned())
             .collect()
+    }
+
+    /// Get command topic info.
+    pub fn get_command_topic_info(&self, command_name: &str) -> Option<&TopicInfo> {
+        self.commands.get(command_name)
     }
 
     /// Get event names.
@@ -80,6 +90,11 @@ impl ComponentInfo {
             .collect()
     }
 
+    /// Get event topic info.
+    pub fn get_event_topic_info(&self, event_name: &str) -> Option<&TopicInfo> {
+        self.events.get(event_name)
+    }
+
     /// Get telemetry names.
     pub fn get_telemetry_names(&self) -> Vec<String> {
         self.telemetry
@@ -87,6 +102,11 @@ impl ComponentInfo {
             .into_iter()
             .map(|topic| topic.to_owned())
             .collect()
+    }
+
+    /// Get telemetry topic info.
+    pub fn get_telemetry_topic_info(&self, telemetry_name: &str) -> Option<&TopicInfo> {
+        self.telemetry.get(telemetry_name)
     }
 
     /// Is the component index?
@@ -163,7 +183,6 @@ mod tests {
     fn make_avro_schema() {
         let component_info = ComponentInfo::new("Test", "unit_test");
 
-        let avro_schema = component_info.make_avro_schema();
         let avro_schema: HashMap<String, Schema> = component_info
             .make_avro_schema()
             .into_iter()
