@@ -163,7 +163,6 @@ mod tests {
     fn make_avro_schema() {
         let component_info = ComponentInfo::new("Test", "unit_test");
 
-        let avro_schema = component_info.make_avro_schema();
         let avro_schema: HashMap<String, Schema> = component_info
             .make_avro_schema()
             .into_iter()
