@@ -2,6 +2,7 @@ use std::{
     cell::RefCell,
     rc::{Rc, Weak},
 };
+use whoami;
 
 use crate::sal_info::SalInfo;
 
@@ -19,7 +20,9 @@ impl Domain {
 
     /// Return the default identify.
     pub fn get_default_identity(&self) -> String {
-        "user@localhost".to_owned()
+        let username = whoami::username();
+        let hostname = whoami::hostname();
+        format!("{username}@{hostname}")
     }
 
     /// Add the specified salinfo to the internal registry.
@@ -47,5 +50,18 @@ impl Domain {
             }
             None => false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Domain;
+
+    fn get_default_identity() {
+        let domain = Domain::new();
+
+        let default_identity = domain.get_default_identity();
+
+        assert!(default_identity.contains("@"))
     }
 }
