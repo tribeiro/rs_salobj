@@ -14,7 +14,7 @@ use std::{cell::RefCell, rc::Rc};
 pub struct SalInfo {
     domain: Rc<RefCell<domain::Domain>>,
     name: String,
-    index: usize,
+    index: isize,
     component_info: ComponentInfo,
     topic_schema: HashMap<String, Schema>,
 }
@@ -28,7 +28,7 @@ impl SalInfo {
     /// between a series of `SalInfo` and, as such it keeps a week reference
     /// of all `SalInfo` instances attached to it. Therefore, the only one
     /// to create an instance of `SalInfo` is to wrap it with an `Rc`.
-    pub fn new(domain: Rc<RefCell<domain::Domain>>, name: &str, index: usize) -> Rc<SalInfo> {
+    pub fn new(domain: Rc<RefCell<domain::Domain>>, name: &str, index: isize) -> Rc<SalInfo> {
         let topic_subname = match env::var("LSST_TOPIC_SUBNAME") {
             Ok(val) => val,
             Err(_) => panic!("You must define environment variable LSST_TOPIC_SUBNAME"),
@@ -88,6 +88,11 @@ impl SalInfo {
     /// Is the component indexed?
     pub fn is_indexed(&self) -> bool {
         self.component_info.is_indexed()
+    }
+
+    /// Get the component index.
+    pub fn get_index(&self) -> isize {
+        self.index
     }
 
     /// Get name[:index]
