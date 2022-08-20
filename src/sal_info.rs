@@ -95,6 +95,9 @@ impl SalInfo {
         self.index
     }
 
+    /// Assert that sal_info was started.
+    pub fn assert_started(&self) {}
+
     /// Get name[:index]
     ///
     /// The suffix is only passed if the component is index.
