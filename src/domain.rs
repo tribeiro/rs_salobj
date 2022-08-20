@@ -57,6 +57,7 @@ impl Domain {
 mod tests {
     use super::Domain;
 
+    #[test]
     fn get_default_identity() {
         let domain = Domain::new();
 
