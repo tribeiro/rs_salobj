@@ -13,7 +13,7 @@ use std::rc::Rc;
 /// then it will have one Remote for each such component.
 pub struct Remote {
     name: String,
-    index: usize,
+    index: isize,
     sal_info: Rc<sal_info::SalInfo>,
     commands: HashMap<String, remote_command::RemoteCommand>,
     events: HashMap<String, remote_event::RemoteEvent>,
@@ -25,7 +25,7 @@ impl Remote {
     pub fn new(
         domain: Rc<RefCell<domain::Domain>>,
         name: &str,
-        index: &usize,
+        index: &isize,
         readonly: bool,
         include: Vec<String>,
         exclude: Vec<String>,
@@ -48,7 +48,7 @@ impl Remote {
     pub fn from_name_index(
         domain: Rc<RefCell<domain::Domain>>,
         name: &str,
-        index: &usize,
+        index: &isize,
     ) -> Remote {
         Remote::new(domain, name, index, true, Vec::new(), Vec::new(), 1)
     }
@@ -160,7 +160,7 @@ impl Remote {
     }
 
     /// Get component index.
-    pub fn get_index(&self) -> usize {
+    pub fn get_index(&self) -> isize {
         self.index.clone()
     }
 
