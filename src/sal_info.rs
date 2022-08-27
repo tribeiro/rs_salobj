@@ -189,6 +189,9 @@ impl SalInfo {
     pub fn assert_is_valid_topic(&self, topic_name: &str) {
         assert!(self.topic_schema.contains_key(topic_name))
     }
+
+    /// Write a message.
+    pub async fn write_data<'a>(&self, data: &Record<'a>) {}
 }
 
 #[cfg(test)]
