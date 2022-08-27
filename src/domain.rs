@@ -18,6 +18,10 @@ impl Domain {
         }
     }
 
+    pub fn new_rc() -> Rc<RefCell<Domain>> {
+        Rc::new(RefCell::new(Domain::new()))
+    }
+
     /// Return the default identify.
     pub fn get_default_identity(&self) -> String {
         let username = whoami::username();
