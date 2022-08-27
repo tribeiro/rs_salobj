@@ -333,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn get_topic_info_event() {
+    fn get_topic_info_event_scalars() {
         let domain = Rc::new(RefCell::new(domain::Domain::new()));
         let sal_info = SalInfo::new(domain, "Test", 1);
 
