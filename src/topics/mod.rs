@@ -6,3 +6,4 @@ pub mod remote_event;
 pub mod remote_telemetry;
 pub mod sal_objects;
 pub mod topic_info;
+pub mod write_topic;

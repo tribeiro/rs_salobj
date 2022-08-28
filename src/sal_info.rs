@@ -95,6 +95,14 @@ impl SalInfo {
         self.index
     }
 
+    /// Return value of origin from domain.
+    pub fn get_origin(&self) -> u32 {
+        self.domain.borrow().get_origin()
+    }
+
+    pub fn get_identity(&self) -> String {
+        self.domain.borrow().get_identity()
+    }
     /// Assert that sal_info was started.
     pub fn assert_started(&self) {}
 
@@ -189,6 +197,9 @@ impl SalInfo {
     pub fn assert_is_valid_topic(&self, topic_name: &str) {
         assert!(self.topic_schema.contains_key(topic_name))
     }
+
+    /// Write a message.
+    pub async fn write_data<'a>(&self, data: &Record<'a>) {}
 }
 
 #[cfg(test)]
@@ -333,7 +344,7 @@ mod tests {
     }
 
     #[test]
-    fn get_topic_info_event() {
+    fn get_topic_info_event_scalars() {
         let domain = Rc::new(RefCell::new(domain::Domain::new()));
         let sal_info = SalInfo::new(domain, "Test", 1);
 

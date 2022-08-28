@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    process,
     rc::{Rc, Weak},
 };
 use whoami;
@@ -8,6 +9,8 @@ use crate::sal_info::SalInfo;
 
 pub struct Domain {
     sal_info_set: RefCell<Vec<Weak<SalInfo>>>,
+    origin: u32,
+    identity: Option<String>,
 }
 
 impl Domain {
@@ -15,7 +18,13 @@ impl Domain {
     pub fn new() -> Domain {
         Domain {
             sal_info_set: RefCell::new(Vec::new()),
+            origin: process::id(),
+            identity: None,
         }
+    }
+
+    pub fn new_rc() -> Rc<RefCell<Domain>> {
+        Rc::new(RefCell::new(Domain::new()))
     }
 
     /// Return the default identify.
@@ -23,6 +32,17 @@ impl Domain {
         let username = whoami::username();
         let hostname = whoami::hostname();
         format!("{username}@{hostname}")
+    }
+
+    pub fn get_origin(&self) -> u32 {
+        self.origin
+    }
+
+    pub fn get_identity(&self) -> String {
+        match &self.identity {
+            Some(identity) => identity.to_owned(),
+            None => self.get_default_identity(),
+        }
     }
 
     /// Add the specified salinfo to the internal registry.

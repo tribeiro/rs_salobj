@@ -1,12 +1,14 @@
 use avro_rs::types::Record;
 
 use crate::{
-    domain::Domain,
     sal_info::SalInfo,
     topics::{base_topic::BaseTopic, topic_info::TopicInfo},
 };
-use std::sync::{Arc, Mutex};
-use std::{cell::RefCell, collections::VecDeque, rc::Rc};
+use std::{
+    collections::VecDeque,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 // Default value for the ``queue_len`` constructor argument.
 const DEFAULT_QUEUE_LEN: usize = 100;
@@ -75,7 +77,8 @@ impl<'a> ReadTopic<'a> {
         }
     }
 
-    /// Returns an owned copy of the value of the internal flag that tracks if reader is open or close.
+    /// Returns an owned copy of the value of the internal flag that tracks if
+    /// reader is open or close.
     pub fn is_open(&self) -> bool {
         self.open.lock().unwrap().to_owned()
     }
@@ -88,10 +91,7 @@ impl<'a> ReadTopic<'a> {
     pub fn has_data(&self) -> bool {
         self.sal_info.assert_started();
 
-        match self.current_data.lock().unwrap().to_owned() {
-            Some(_) => true,
-            None => false,
-        }
+        self.current_data.lock().unwrap().is_some()
     }
 
     /// Return the number of messages in the data queue.
@@ -194,6 +194,7 @@ impl<'a> BaseTopic for ReadTopic<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::Domain;
     use std::cell::RefCell;
 
     #[test]
