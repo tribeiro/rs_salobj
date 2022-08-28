@@ -95,6 +95,14 @@ impl SalInfo {
         self.index
     }
 
+    /// Return value of origin from domain.
+    pub fn get_origin(&self) -> u32 {
+        self.domain.borrow().get_origin()
+    }
+
+    pub fn get_identity(&self) -> String {
+        self.domain.borrow().get_identity()
+    }
     /// Assert that sal_info was started.
     pub fn assert_started(&self) {}
 
