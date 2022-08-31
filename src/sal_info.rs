@@ -1,6 +1,7 @@
 use crate::component_info::ComponentInfo;
 use crate::domain;
 use crate::sal_enums;
+use crate::topics::read_topic::ReadTopic;
 use crate::topics::topic_info::TopicInfo;
 use avro_rs::{
     types::{Record, Value},
@@ -8,18 +9,20 @@ use avro_rs::{
 };
 use std::collections::HashMap;
 use std::env;
+use std::sync::Mutex;
 use std::{cell::RefCell, rc::Rc};
 
 ///Information for one SAL component and index.
-pub struct SalInfo {
-    domain: Rc<RefCell<domain::Domain>>,
+pub struct SalInfo<'a> {
+    domain: Rc<RefCell<domain::Domain<'a>>>,
     name: String,
     index: isize,
     component_info: ComponentInfo,
     topic_schema: HashMap<String, Schema>,
+    read_topics: Mutex<HashMap<String, ReadTopic<'a>>>,
 }
 
-impl SalInfo {
+impl<'a> SalInfo<'a> {
     /// Create a Reference Counted (Rc) instance of `SalInfo`.
     ///
     /// When creating an instance of `SalInfo` we require a Reference Counted
@@ -28,7 +31,11 @@ impl SalInfo {
     /// between a series of `SalInfo` and, as such it keeps a week reference
     /// of all `SalInfo` instances attached to it. Therefore, the only one
     /// to create an instance of `SalInfo` is to wrap it with an `Rc`.
-    pub fn new(domain: Rc<RefCell<domain::Domain>>, name: &str, index: isize) -> Rc<SalInfo> {
+    pub fn new(
+        domain: Rc<RefCell<domain::Domain<'a>>>,
+        name: &str,
+        index: isize,
+    ) -> Rc<SalInfo<'a>> {
         let topic_subname = match env::var("LSST_TOPIC_SUBNAME") {
             Ok(val) => val,
             Err(_) => panic!("You must define environment variable LSST_TOPIC_SUBNAME"),
@@ -56,6 +63,7 @@ impl SalInfo {
             index: index,
             component_info: component_info,
             topic_schema: topic_schema,
+            read_topics: Mutex::new(HashMap::new()),
         });
 
         sal_info.domain.borrow().add_salinfo(&sal_info);
@@ -198,8 +206,28 @@ impl SalInfo {
         assert!(self.topic_schema.contains_key(topic_name))
     }
 
+    /// Add a ReadTopic, so it can be read by the read loop and closed by
+    /// `close`.
+    ///
+    /// # Panic
+    ///
+    /// If called after `start` has been called.
+    /// If topic already added.
+    pub fn add_reader(&self, read_topic: ReadTopic<'a>) {
+        let topic_name = read_topic.get_sal_name();
+        let mut read_topics = self.read_topics.lock().unwrap();
+
+        assert!(!read_topics.contains_key(&topic_name));
+
+        read_topics.insert(read_topic.get_sal_name(), read_topic);
+    }
+
+    /// Check if the input topic name is in the set of read topics.
+    pub fn has_read_topic(&self, topic_name: &str) -> bool {
+        self.read_topics.lock().unwrap().contains_key(topic_name)
+    }
     /// Write a message.
-    pub async fn write_data<'a>(&self, data: &Record<'a>) {}
+    pub async fn write_data<'b>(&self, data: &Record<'b>) {}
 }
 
 #[cfg(test)]
