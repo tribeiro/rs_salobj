@@ -7,15 +7,15 @@ use whoami;
 
 use crate::sal_info::SalInfo;
 
-pub struct Domain {
-    sal_info_set: RefCell<Vec<Weak<SalInfo>>>,
+pub struct Domain<'a> {
+    sal_info_set: RefCell<Vec<Weak<SalInfo<'a>>>>,
     origin: u32,
     identity: Option<String>,
 }
 
-impl Domain {
+impl<'a> Domain<'a> {
     /// Create a new instance of Domain,
-    pub fn new() -> Domain {
+    pub fn new() -> Domain<'a> {
         Domain {
             sal_info_set: RefCell::new(Vec::new()),
             origin: process::id(),
@@ -23,7 +23,7 @@ impl Domain {
         }
     }
 
-    pub fn new_rc() -> Rc<RefCell<Domain>> {
+    pub fn new_rc() -> Rc<RefCell<Domain<'a>>> {
         Rc::new(RefCell::new(Domain::new()))
     }
 
@@ -49,7 +49,7 @@ impl Domain {
     ///
     /// The input pointer is downgraded to a week reference and added to a
     /// vector list.
-    pub fn add_salinfo(&self, sal_info: &Rc<SalInfo>) {
+    pub fn add_salinfo(&self, sal_info: &Rc<SalInfo<'a>>) {
         self.sal_info_set.borrow_mut().push(Rc::downgrade(sal_info));
     }
 
@@ -57,7 +57,7 @@ impl Domain {
     ///
     /// Objects are removed using `swap_remove`, which is O(1) but does not
     /// preserve ordering.
-    pub fn remove_salinfo(&self, sal_info: &Rc<SalInfo>) -> bool {
+    pub fn remove_salinfo(&self, sal_info: &Rc<SalInfo<'a>>) -> bool {
         match self
             .sal_info_set
             .borrow()
