@@ -11,26 +11,26 @@ use std::rc::Rc;
 ///
 /// If a SAL component listens to or commands other SAL components
 /// then it will have one Remote for each such component.
-pub struct Remote {
+pub struct Remote<'a> {
     name: String,
     index: isize,
-    sal_info: Rc<sal_info::SalInfo>,
+    sal_info: Rc<sal_info::SalInfo<'a>>,
     commands: HashMap<String, remote_command::RemoteCommand>,
     events: HashMap<String, remote_event::RemoteEvent>,
     telemetry: HashMap<String, remote_telemetry::RemoteTelemetry>,
     started: bool,
 }
 
-impl Remote {
+impl<'a> Remote<'a> {
     pub fn new(
-        domain: Rc<RefCell<domain::Domain>>,
+        domain: Rc<RefCell<domain::Domain<'a>>>,
         name: &str,
         index: &isize,
         readonly: bool,
         include: Vec<String>,
         exclude: Vec<String>,
         evt_max_history: usize,
-    ) -> Remote {
+    ) -> Remote<'a> {
         let mut remote = Remote {
             name: String::from(name),
             index: index.clone(),
@@ -46,10 +46,10 @@ impl Remote {
     }
 
     pub fn from_name_index(
-        domain: Rc<RefCell<domain::Domain>>,
+        domain: Rc<RefCell<domain::Domain<'a>>>,
         name: &str,
         index: &isize,
-    ) -> Remote {
+    ) -> Remote<'a> {
         Remote::new(domain, name, index, true, Vec::new(), Vec::new(), 1)
     }
 
@@ -164,7 +164,7 @@ impl Remote {
         self.index.clone()
     }
 
-    pub fn get_salindex(&self) -> &sal_info::SalInfo {
+    pub fn get_salindex(&self) -> &sal_info::SalInfo<'a> {
         &self.sal_info
     }
 }
