@@ -19,7 +19,7 @@ const MIN_QUEUE_LEN: usize = 10;
 /// Base struct for reading a topic.
 pub struct ReadTopic<'a> {
     /// SAL component information.
-    sal_info: Rc<SalInfo>,
+    sal_info: Rc<SalInfo<'a>>,
     /// The name of the topic.
     sal_name: String,
     /// Is this read topic open? `True` until `close` or `basic_close` is called.
@@ -45,11 +45,11 @@ pub struct ReadTopic<'a> {
 
 impl<'a> ReadTopic<'a> {
     pub fn new(
-        sal_info: Rc<SalInfo>,
+        sal_info: Rc<SalInfo<'a>>,
         sal_name: &str,
         max_history: usize,
         queue_len: usize,
-    ) -> ReadTopic {
+    ) -> ReadTopic<'a> {
         sal_info.assert_is_valid_topic(sal_name);
 
         if sal_info.is_indexed() && sal_info.get_index() == 0 && max_history > 1 {
@@ -77,6 +77,9 @@ impl<'a> ReadTopic<'a> {
         }
     }
 
+    pub fn get_sal_name(&self) -> String {
+        self.sal_name.to_owned()
+    }
     /// Returns an owned copy of the value of the internal flag that tracks if
     /// reader is open or close.
     pub fn is_open(&self) -> bool {

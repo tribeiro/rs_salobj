@@ -22,7 +22,7 @@ const MAX_SEQ_NUM: i64 = i64::MAX;
 /// Base struct for writing a topic.
 pub struct WriteTopic<'a> {
     /// SAL component information.
-    sal_info: Rc<SalInfo>,
+    sal_info: Rc<SalInfo<'a>>,
     /// The name of the topic.
     sal_name: String,
     /// Is this instance open? `True` until `close` or `basic_close` is called.
@@ -45,7 +45,7 @@ impl<'a> BaseTopic for WriteTopic<'a> {
 }
 
 impl<'a> WriteTopic<'a> {
-    pub fn new(sal_info: Rc<SalInfo>, sal_name: &str) -> WriteTopic {
+    pub fn new(sal_info: Rc<SalInfo<'a>>, sal_name: &str) -> WriteTopic<'a> {
         sal_info.assert_is_valid_topic(sal_name);
 
         WriteTopic {
