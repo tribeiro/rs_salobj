@@ -3,6 +3,7 @@ use crate::domain;
 use crate::sal_enums;
 use crate::topics::read_topic::ReadTopic;
 use crate::topics::topic_info::TopicInfo;
+use crate::topics::write_topic::WriteTopic;
 use avro_rs::{
     types::{Record, Value},
     Schema,
@@ -20,6 +21,7 @@ pub struct SalInfo<'a> {
     component_info: ComponentInfo,
     topic_schema: HashMap<String, Schema>,
     read_topics: Mutex<HashMap<String, ReadTopic<'a>>>,
+    write_topics: Mutex<HashMap<String, WriteTopic<'a>>>,
 }
 
 impl<'a> SalInfo<'a> {
@@ -64,6 +66,7 @@ impl<'a> SalInfo<'a> {
             component_info: component_info,
             topic_schema: topic_schema,
             read_topics: Mutex::new(HashMap::new()),
+            write_topics: Mutex::new(HashMap::new()),
         });
 
         sal_info.domain.borrow().add_salinfo(&sal_info);
@@ -211,7 +214,7 @@ impl<'a> SalInfo<'a> {
     ///
     /// # Panic
     ///
-    /// If called after `start` has been called.
+    /// TODO: If called after `start` has been called.
     /// If topic already added.
     pub fn add_reader(&self, read_topic: ReadTopic<'a>) {
         let topic_name = read_topic.get_sal_name();
@@ -222,10 +225,32 @@ impl<'a> SalInfo<'a> {
         read_topics.insert(read_topic.get_sal_name(), read_topic);
     }
 
+    /// Add a WriteTopic, so it can be closed by `close`.
+    ///
+    /// # Panic
+    ///
+    /// TODO: If called after `start` has been called.
+    /// If topic already added.
+    pub fn add_writer(&self, write_topic: WriteTopic<'a>) {
+        let topic_name = write_topic.get_sal_name();
+
+        let mut write_topics = self.write_topics.lock().unwrap();
+
+        assert!(!write_topics.contains_key(&topic_name));
+
+        write_topics.insert(write_topic.get_sal_name(), write_topic);
+    }
+
     /// Check if the input topic name is in the set of read topics.
     pub fn has_read_topic(&self, topic_name: &str) -> bool {
         self.read_topics.lock().unwrap().contains_key(topic_name)
     }
+
+    /// Check if the input topic name is in the set of write topics.
+    pub fn has_write_topic(&self, topic_name: &str) -> bool {
+        self.write_topics.lock().unwrap().contains_key(topic_name)
+    }
+
     /// Write a message.
     pub async fn write_data<'b>(&self, data: &Record<'b>) {}
 }
