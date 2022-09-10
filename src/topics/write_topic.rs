@@ -56,6 +56,10 @@ impl<'a> WriteTopic<'a> {
         }
     }
 
+    pub fn get_sal_name(&self) -> String {
+        self.sal_name.to_owned()
+    }
+
     /// Returns an owned copy of the value of the internal flag that tracks if
     /// writer is open or close.
     pub fn is_open(&self) -> bool {
