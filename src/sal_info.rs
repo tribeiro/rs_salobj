@@ -1,43 +1,24 @@
 use crate::component_info::ComponentInfo;
-use crate::domain;
 use crate::sal_enums;
-use crate::topics::read_topic::ReadTopic;
 use crate::topics::topic_info::TopicInfo;
-use crate::topics::write_topic::WriteTopic;
 use avro_rs::{
     types::{Record, Value},
     Schema,
 };
 use std::collections::HashMap;
 use std::env;
-use std::sync::Mutex;
-use std::{cell::RefCell, rc::Rc};
 
 ///Information for one SAL component and index.
-pub struct SalInfo<'a> {
-    domain: Rc<RefCell<domain::Domain<'a>>>,
+pub struct SalInfo {
     name: String,
     index: isize,
     component_info: ComponentInfo,
     topic_schema: HashMap<String, Schema>,
-    read_topics: Mutex<HashMap<String, ReadTopic<'a>>>,
-    write_topics: Mutex<HashMap<String, WriteTopic<'a>>>,
 }
 
-impl<'a> SalInfo<'a> {
-    /// Create a Reference Counted (Rc) instance of `SalInfo`.
-    ///
-    /// When creating an instance of `SalInfo` we require a Reference Counted
-    /// Mutable Memory location instance of a `Domain` object (e.g.
-    /// Rc<RefCell<Domain>>). The `Domain` contains information that is shared
-    /// between a series of `SalInfo` and, as such it keeps a week reference
-    /// of all `SalInfo` instances attached to it. Therefore, the only one
-    /// to create an instance of `SalInfo` is to wrap it with an `Rc`.
-    pub fn new(
-        domain: Rc<RefCell<domain::Domain<'a>>>,
-        name: &str,
-        index: isize,
-    ) -> Rc<SalInfo<'a>> {
+impl SalInfo {
+    /// Create a new instance of `SalInfo`.
+    pub fn new(name: &str, index: isize) -> SalInfo {
         let topic_subname = match env::var("LSST_TOPIC_SUBNAME") {
             Ok(val) => val,
             Err(_) => panic!("You must define environment variable LSST_TOPIC_SUBNAME"),
@@ -59,19 +40,12 @@ impl<'a> SalInfo<'a> {
             })
             .collect();
 
-        let sal_info = Rc::new(SalInfo {
-            domain: domain,
+        SalInfo {
             name: name.to_owned(),
             index: index,
             component_info: component_info,
             topic_schema: topic_schema,
-            read_topics: Mutex::new(HashMap::new()),
-            write_topics: Mutex::new(HashMap::new()),
-        });
-
-        sal_info.domain.borrow().add_salinfo(&sal_info);
-
-        sal_info
+        }
     }
 
     /// Make an AckCmd `Record` from keyword arguments.
@@ -105,17 +79,6 @@ impl<'a> SalInfo<'a> {
     pub fn get_index(&self) -> isize {
         self.index
     }
-
-    /// Return value of origin from domain.
-    pub fn get_origin(&self) -> u32 {
-        self.domain.borrow().get_origin()
-    }
-
-    pub fn get_identity(&self) -> String {
-        self.domain.borrow().get_identity()
-    }
-    /// Assert that sal_info was started.
-    pub fn assert_started(&self) {}
 
     /// Get name[:index]
     ///
@@ -208,51 +171,6 @@ impl<'a> SalInfo<'a> {
     pub fn assert_is_valid_topic(&self, topic_name: &str) {
         assert!(self.topic_schema.contains_key(topic_name))
     }
-
-    /// Add a ReadTopic, so it can be read by the read loop and closed by
-    /// `close`.
-    ///
-    /// # Panic
-    ///
-    /// TODO: If called after `start` has been called.
-    /// If topic already added.
-    pub fn add_reader(&self, read_topic: ReadTopic<'a>) {
-        let topic_name = read_topic.get_sal_name();
-        let mut read_topics = self.read_topics.lock().unwrap();
-
-        assert!(!read_topics.contains_key(&topic_name));
-
-        read_topics.insert(read_topic.get_sal_name(), read_topic);
-    }
-
-    /// Add a WriteTopic, so it can be closed by `close`.
-    ///
-    /// # Panic
-    ///
-    /// TODO: If called after `start` has been called.
-    /// If topic already added.
-    pub fn add_writer(&self, write_topic: WriteTopic<'a>) {
-        let topic_name = write_topic.get_sal_name();
-
-        let mut write_topics = self.write_topics.lock().unwrap();
-
-        assert!(!write_topics.contains_key(&topic_name));
-
-        write_topics.insert(write_topic.get_sal_name(), write_topic);
-    }
-
-    /// Check if the input topic name is in the set of read topics.
-    pub fn has_read_topic(&self, topic_name: &str) -> bool {
-        self.read_topics.lock().unwrap().contains_key(topic_name)
-    }
-
-    /// Check if the input topic name is in the set of write topics.
-    pub fn has_write_topic(&self, topic_name: &str) -> bool {
-        self.write_topics.lock().unwrap().contains_key(topic_name)
-    }
-
-    /// Write a message.
-    pub async fn write_data<'b>(&self, data: &Record<'b>) {}
 }
 
 #[cfg(test)]
@@ -262,8 +180,7 @@ mod tests {
 
     #[test]
     fn sal_info_get_command_names() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         let command_names = sal_info.get_command_names();
 
@@ -272,8 +189,7 @@ mod tests {
 
     #[test]
     fn sal_info_get_event_names() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         let event_names = sal_info.get_event_names();
 
@@ -282,8 +198,7 @@ mod tests {
 
     #[test]
     fn sal_info_get_telemetry_names() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         let telemetry_names = sal_info.get_telemetry_names();
 
@@ -293,30 +208,26 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid index=1. Component ATMCS is not indexed. Index must be 0.")]
     fn panic_if_index_for_non_indexed() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let _ = SalInfo::new(domain, "ATMCS", 1);
+        let _ = SalInfo::new("ATMCS", 1);
     }
 
     #[test]
     fn get_name_index_indexed() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         assert_eq!(sal_info.get_name_index(), "Test:1")
     }
 
     #[test]
     fn get_name_index_non_indexed() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "ATMCS", 0);
+        let sal_info = SalInfo::new("ATMCS", 0);
 
         assert_eq!(sal_info.get_name_index(), "ATMCS")
     }
 
     #[test]
     fn make_ackcmd() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         let ackcmd = sal_info.make_ackcmd(
             12345,
@@ -353,8 +264,7 @@ mod tests {
 
     #[test]
     fn assert_is_valid_topic_with_valid_topic() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         sal_info.assert_is_valid_topic("Test_logevent_scalars")
     }
@@ -362,16 +272,14 @@ mod tests {
     #[test]
     #[should_panic]
     fn assert_is_valid_topic_with_invalid_topic() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         sal_info.assert_is_valid_topic("Test_logevent_badTopicName")
     }
 
     #[test]
     fn get_topic_info_ackcmd() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get ackcmd
         sal_info.get_topic_info(&"ackcmd").unwrap();
@@ -379,8 +287,7 @@ mod tests {
 
     #[test]
     fn get_topic_info_command() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get command
         sal_info.get_topic_info(&"Test_command_start").unwrap();
@@ -389,8 +296,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn get_topic_info_bad_command() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get command
         sal_info.get_topic_info(&"Test_command_startBad").unwrap();
@@ -398,8 +304,7 @@ mod tests {
 
     #[test]
     fn get_topic_info_event_scalars() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get event
         sal_info.get_topic_info(&"Test_logevent_scalars").unwrap();
@@ -408,8 +313,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn get_topic_info_bad_event() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get event
         sal_info
@@ -419,8 +323,7 @@ mod tests {
 
     #[test]
     fn get_topic_info_telemetry() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get telemetry
         sal_info.get_topic_info(&"Test_scalars").unwrap();
@@ -429,8 +332,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn get_topic_info_bad_telemetry() {
-        let domain = Rc::new(RefCell::new(domain::Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get telemetry
         sal_info.get_topic_info(&"Test_scalarsBad").unwrap();
