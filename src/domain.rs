@@ -1,30 +1,18 @@
-use std::{
-    cell::RefCell,
-    process,
-    rc::{Rc, Weak},
-};
+use std::process;
 use whoami;
 
-use crate::sal_info::SalInfo;
-
-pub struct Domain<'a> {
-    sal_info_set: RefCell<Vec<Weak<SalInfo<'a>>>>,
+pub struct Domain {
     origin: u32,
     identity: Option<String>,
 }
 
-impl<'a> Domain<'a> {
+impl Domain {
     /// Create a new instance of Domain,
-    pub fn new() -> Domain<'a> {
+    pub fn new() -> Domain {
         Domain {
-            sal_info_set: RefCell::new(Vec::new()),
             origin: process::id(),
             identity: None,
         }
-    }
-
-    pub fn new_rc() -> Rc<RefCell<Domain<'a>>> {
-        Rc::new(RefCell::new(Domain::new()))
     }
 
     /// Return the default identify.
@@ -42,33 +30,6 @@ impl<'a> Domain<'a> {
         match &self.identity {
             Some(identity) => identity.to_owned(),
             None => self.get_default_identity(),
-        }
-    }
-
-    /// Add the specified salinfo to the internal registry.
-    ///
-    /// The input pointer is downgraded to a week reference and added to a
-    /// vector list.
-    pub fn add_salinfo(&self, sal_info: &Rc<SalInfo<'a>>) {
-        self.sal_info_set.borrow_mut().push(Rc::downgrade(sal_info));
-    }
-
-    /// Remove the specified salinfo to the internal registry.
-    ///
-    /// Objects are removed using `swap_remove`, which is O(1) but does not
-    /// preserve ordering.
-    pub fn remove_salinfo(&self, sal_info: &Rc<SalInfo<'a>>) -> bool {
-        match self
-            .sal_info_set
-            .borrow()
-            .iter()
-            .position(|x| x.ptr_eq(&Rc::downgrade(sal_info)))
-        {
-            Some(index) => {
-                self.sal_info_set.borrow_mut().swap_remove(index);
-                true
-            }
-            None => false,
         }
     }
 }

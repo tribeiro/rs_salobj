@@ -1,5 +1,5 @@
-use crate::topics::topic_info::TopicInfo;
-use avro_rs::{types::Record, Schema};
+use crate::{sal_info::SalInfo, topics::topic_info::TopicInfo};
+use avro_rs::types::Record;
 
 /// A trait that represents base topic interface.
 pub trait BaseTopic {
@@ -22,7 +22,9 @@ pub trait BaseTopic {
     /// `BaseTopic`, use `make_avro_schema` to store the topic schema and this
     /// method to return it. This will make the code faster for runtime topic
     /// creation.
-    fn get_avro_schema(&self) -> &Schema;
+    fn get_avro_schema(sal_info: &SalInfo, sal_name: &str) -> avro_rs::Schema {
+        sal_info.get_topic_schema(sal_name).unwrap().clone()
+    }
 
     /// Make data type.
     ///
@@ -31,18 +33,9 @@ pub trait BaseTopic {
     /// record, which can be slow to do every single time you want to generate
     /// a topic record. Instead, use this method when creating the topic and
     /// store a copy in your class, then use `get_data_type` to retrieve it.
-    fn make_data_type(&self) -> Record {
-        let record = Record::new(self.get_avro_schema()).unwrap().to_owned();
+    fn make_data_type(avro_schema: &avro_rs::Schema) -> Record {
+        let record = Record::new(avro_schema).unwrap().to_owned();
 
         record
     }
-
-    /// Get data type.
-    ///
-    /// In principle this method should return the same value produced by
-    /// `make_data_type`. But, instead of creating the topic record, this
-    /// method can return a previously stored copy of the topic. When
-    /// implementing the `BaseTopic` trait, use `make_data_type` to create the
-    /// record and implement `get_data_type` to return it.
-    fn get_data_type(&self) -> Record;
 }

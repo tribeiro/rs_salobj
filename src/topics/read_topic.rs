@@ -4,11 +4,6 @@ use crate::{
     sal_info::SalInfo,
     topics::{base_topic::BaseTopic, topic_info::TopicInfo},
 };
-use std::{
-    collections::VecDeque,
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
 
 // Default value for the ``queue_len`` constructor argument.
 const DEFAULT_QUEUE_LEN: usize = 100;
@@ -19,11 +14,12 @@ const MIN_QUEUE_LEN: usize = 10;
 /// Base struct for reading a topic.
 pub struct ReadTopic<'a> {
     /// SAL component information.
-    sal_info: Rc<SalInfo<'a>>,
+    sal_info: &'a SalInfo,
     /// The name of the topic.
     sal_name: String,
     /// Is this read topic open? `True` until `close` or `basic_close` is called.
-    open: Arc<Mutex<bool>>,
+    open: bool,
+    flushed: bool,
     /// Maximum number of historical items to read when starting up.
     ///
     /// * 0 is required for commands, events, and the ackcmd topic.
@@ -36,20 +32,11 @@ pub struct ReadTopic<'a> {
     //     that is still in the read queue, in the order received.
     //     max_history > 1 is forbidden, because it is difficult to implement.
     max_history: usize,
-    /// The maximum number of messages that can be read and not dealt with
-    /// by a callback function or `next` before older messages will be dropped.
-    queue_len: usize,
-    data_queue: Arc<Mutex<VecDeque<avro_rs::types::Record<'a>>>>,
-    current_data: Arc<Mutex<Option<Record<'a>>>>,
+    current_data: Option<Record<'a>>,
 }
 
 impl<'a> ReadTopic<'a> {
-    pub fn new(
-        sal_info: Rc<SalInfo<'a>>,
-        sal_name: &str,
-        max_history: usize,
-        queue_len: usize,
-    ) -> ReadTopic<'a> {
+    pub fn new(sal_info: &'a SalInfo, sal_name: &str, max_history: usize) -> ReadTopic<'a> {
         sal_info.assert_is_valid_topic(sal_name);
 
         if sal_info.is_indexed() && sal_info.get_index() == 0 && max_history > 1 {
@@ -58,32 +45,28 @@ impl<'a> ReadTopic<'a> {
             )
         }
 
-        if queue_len < MIN_QUEUE_LEN {
-            panic!("queue_len={queue_len} must be >= MIN_QUEUE_LEN={MIN_QUEUE_LEN}.");
-        }
-
-        if max_history > queue_len {
-            panic!("max_history={max_history} must be <= queue_len={queue_len}.")
-        }
-
         ReadTopic {
             sal_info: sal_info,
             sal_name: sal_name.to_owned(),
-            open: Arc::new(Mutex::new(true)),
+            open: false,
+            flushed: false,
             max_history: max_history,
-            queue_len: queue_len,
-            data_queue: Arc::new(Mutex::new(VecDeque::with_capacity(queue_len))),
-            current_data: Arc::new(Mutex::new(None)),
+            current_data: None,
         }
     }
 
     pub fn get_sal_name(&self) -> String {
         self.sal_name.to_owned()
     }
+
+    pub fn get_max_history(&self) -> usize {
+        self.max_history
+    }
+
     /// Returns an owned copy of the value of the internal flag that tracks if
     /// reader is open or close.
     pub fn is_open(&self) -> bool {
-        self.open.lock().unwrap().to_owned()
+        self.open
     }
 
     /// Has any data ever been seen for this topic?
@@ -92,26 +75,14 @@ impl<'a> ReadTopic<'a> {
     ///
     /// If sal_info was not started.
     pub fn has_data(&self) -> bool {
-        self.sal_info.assert_started();
-
-        self.current_data.lock().unwrap().is_some()
-    }
-
-    /// Return the number of messages in the data queue.
-    pub fn get_data_queue_len(&self) -> usize {
-        self.data_queue.lock().unwrap().len()
-    }
-
-    /// Get value of max history.
-    pub fn get_max_history(&self) -> usize {
-        self.max_history
+        self.current_data.is_some()
     }
 
     /// A synchronous and possibly less thorough version of `close`.
     ///
     /// Intended for exit handlers and constructor error handlers.
-    pub fn basic_close(&self) {
-        *self.open.lock().unwrap() = false.to_owned();
+    pub fn basic_close(&mut self) {
+        self.open = false;
     }
 
     /// Flush the queue used by `get_oldest` and `next`.
@@ -119,8 +90,8 @@ impl<'a> ReadTopic<'a> {
     /// This makes `get_oldest` return `None` and `next` wait,
     /// until a new message arrives.
     /// It does not change which message will be returned by `aget` or `get`.
-    pub fn flush(&self) {
-        self.data_queue.lock().unwrap().clear();
+    pub fn flush(&mut self) {
+        self.flushed = true;
     }
 
     /// Get the most recent message, or `None` if no data has ever been seen
@@ -129,9 +100,7 @@ impl<'a> ReadTopic<'a> {
     /// This method does not change which message will be returned by `aget`,
     /// `get_oldest`, and `next`.
     pub fn get(&self) -> Option<Record> {
-        self.sal_info.assert_started();
-
-        self.current_data.lock().unwrap().to_owned()
+        self.current_data.to_owned()
     }
 
     /// Pop and return the oldest message from the queue, or `None` if the
@@ -141,9 +110,7 @@ impl<'a> ReadTopic<'a> {
     /// message. This method affects which message will be returned by `next`,
     /// but not which message will be returned by `aget` or `get`.
     pub fn pop_oldest(&self) -> Option<Record> {
-        self.sal_info.assert_started();
-
-        self.data_queue.lock().unwrap().pop_front()
+        self.current_data.to_owned()
     }
 
     /// Pop and return the oldest message from the queue, waiting for data
@@ -152,8 +119,7 @@ impl<'a> ReadTopic<'a> {
     ///
     /// This method affects the data returned by `get_oldest`, but not the data
     /// returned by `aget` or `get`.
-    pub async fn pop_next(&self, flush: bool, timeout: std::time::Duration) -> Option<Record> {
-        self.sal_info.assert_started();
+    pub async fn pop_next(&mut self, flush: bool, timeout: std::time::Duration) -> Option<Record> {
         if flush {
             self.flush();
         }
@@ -166,17 +132,16 @@ impl<'a> ReadTopic<'a> {
     /// If the data queue has data available, return the oldest message, if the
     /// queue is empty wait up to timeout for new data to arrive and return it.
     /// If no data is received in time, return `None`.
-    async fn wait_next(&self, timeout: std::time::Duration) -> Option<Record> {
+    async fn wait_next(&mut self, timeout: std::time::Duration) -> Option<Record> {
         // TODO: Finish implementation.
-        self.data_queue.lock().unwrap().pop_back()
-    }
-
-    /// Add data to the back of the data queue.
-    ///
-    /// If the queue is full, older data will be dropped.
-    fn push_back(&self, data: Record<'a>) {
-        *self.current_data.lock().unwrap() = Some(data.to_owned());
-        self.data_queue.lock().unwrap().push_back(data.to_owned());
+        if self.flushed {
+            // TODO: Get the most recent data that was published after flush
+            // was called.
+            return None;
+        } else {
+            // TODO: Get the next data in the queue
+            return None;
+        }
     }
 }
 
@@ -184,67 +149,36 @@ impl<'a> BaseTopic for ReadTopic<'a> {
     fn get_topic_info(&self) -> &TopicInfo {
         self.sal_info.get_topic_info(&self.sal_name).unwrap()
     }
-
-    fn get_avro_schema(&self) -> &avro_rs::Schema {
-        &self.sal_info.get_topic_schema(&self.sal_name).unwrap()
-    }
-
-    fn get_data_type(&self) -> avro_rs::types::Record {
-        self.make_data_type()
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::Domain;
-    use std::cell::RefCell;
 
     #[test]
     #[should_panic(
         expected = "max_history=2 must be 0 or 1 for an indexed component with index=0."
     )]
     fn read_topic_new_indexed_0_with_max_history() {
-        let domain = Rc::new(RefCell::new(Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 0);
+        let sal_info = SalInfo::new("Test", 0);
 
-        ReadTopic::new(sal_info, "Test_scalars", 2, 10);
-    }
-
-    #[test]
-    #[should_panic(expected = "queue_len=5 must be >= MIN_QUEUE_LEN")]
-    fn read_topic_new_queue_len_too_small() {
-        let domain = Rc::new(RefCell::new(Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
-
-        ReadTopic::new(sal_info, "Test_scalars", 1, 5);
-    }
-
-    #[test]
-    #[should_panic(expected = "max_history=200 must be <= queue_len=100.")]
-    fn read_topic_new_max_history_less_than_queue_len() {
-        let domain = Rc::new(RefCell::new(Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
-
-        ReadTopic::new(sal_info, "Test_scalars", 200, 100);
+        ReadTopic::new(&sal_info, "Test_scalars", 2);
     }
 
     #[test]
     fn read_topic_new_is_open() {
-        let domain = Rc::new(RefCell::new(Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
-        let read_topic = ReadTopic::new(sal_info, "Test_scalars", 0, 100);
+        let read_topic = ReadTopic::new(&sal_info, "Test_scalars", 0);
 
-        assert!(read_topic.is_open())
+        assert!(!read_topic.is_open())
     }
 
     #[test]
     fn basic_close() {
-        let domain = Rc::new(RefCell::new(Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
-        let read_topic = ReadTopic::new(sal_info, "Test_scalars", 0, 100);
+        let mut read_topic = ReadTopic::new(&sal_info, "Test_scalars", 0);
 
         read_topic.basic_close();
 
@@ -252,41 +186,11 @@ mod tests {
     }
 
     #[test]
-    fn push_back() {
-        let domain = Rc::new(RefCell::new(Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
-
-        // Need mutable instance for pushback to work
-        let read_topic = ReadTopic::new(sal_info, "Test_scalars", 0, 100);
-
-        let mut topic_sample = read_topic.get_data_type();
-
-        topic_sample.put("boolean0", true);
-        topic_sample.put("byte0", 1);
-        topic_sample.put("short0", 1);
-        topic_sample.put("int0", 1);
-        topic_sample.put("long0", 1);
-        topic_sample.put("longLong0", 1);
-        topic_sample.put("unsignedShort0", 1);
-        topic_sample.put("unsignedInt0", 1);
-        topic_sample.put("unsignedLong0", 1);
-        topic_sample.put("float0", 1.0);
-        topic_sample.put("double0", 1.0);
-        topic_sample.put("string0", "one".to_owned());
-
-        read_topic.push_back(topic_sample);
-
-        assert!(read_topic.has_data());
-        assert_eq!(read_topic.get_data_queue_len(), 1);
-    }
-
-    #[test]
     fn get_no_data() {
-        let domain = Rc::new(RefCell::new(Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
+        let sal_info = SalInfo::new("Test", 1);
 
         // Need mutable instance for pushback to work
-        let read_topic = ReadTopic::new(sal_info, "Test_scalars", 0, 100);
+        let read_topic = ReadTopic::new(&sal_info, "Test_scalars", 0);
 
         let data = read_topic.get();
 
@@ -294,75 +198,5 @@ mod tests {
         assert!(data.is_none());
         // There's no data in the queue.
         assert!(!read_topic.has_data());
-        assert_eq!(read_topic.get_data_queue_len(), 0);
-    }
-
-    #[test]
-    fn get_with_data() {
-        let domain = Rc::new(RefCell::new(Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
-
-        // Need mutable instance for pushback to work
-        let read_topic = ReadTopic::new(sal_info, "Test_scalars", 0, 100);
-
-        let mut topic_sample = read_topic.get_data_type();
-
-        topic_sample.put("boolean0", true);
-        topic_sample.put("byte0", 1);
-        topic_sample.put("short0", 1);
-        topic_sample.put("int0", 1);
-        topic_sample.put("long0", 1);
-        topic_sample.put("longLong0", 1);
-        topic_sample.put("unsignedShort0", 1);
-        topic_sample.put("unsignedInt0", 1);
-        topic_sample.put("unsignedLong0", 1);
-        topic_sample.put("float0", 1.0);
-        topic_sample.put("double0", 1.0);
-        topic_sample.put("string0", "one".to_owned());
-
-        read_topic.push_back(topic_sample);
-
-        let data = read_topic.get();
-
-        // Data must be something.
-        assert!(data.is_some());
-
-        // Get does not change the data queue, so there should still be data there.
-        assert_eq!(read_topic.get_data_queue_len(), 1)
-    }
-
-    #[test]
-    fn pop_oldest() {
-        let domain = Rc::new(RefCell::new(Domain::new()));
-        let sal_info = SalInfo::new(domain, "Test", 1);
-
-        // Need mutable instance for pushback to work
-        let read_topic = ReadTopic::new(sal_info, "Test_scalars", 0, 100);
-
-        let mut topic_sample = read_topic.get_data_type();
-
-        topic_sample.put("boolean0", true);
-        topic_sample.put("byte0", 1);
-        topic_sample.put("short0", 1);
-        topic_sample.put("int0", 1);
-        topic_sample.put("long0", 1);
-        topic_sample.put("longLong0", 1);
-        topic_sample.put("unsignedShort0", 1);
-        topic_sample.put("unsignedInt0", 1);
-        topic_sample.put("unsignedLong0", 1);
-        topic_sample.put("float0", 1.0);
-        topic_sample.put("double0", 1.0);
-        topic_sample.put("string0", "one".to_owned());
-
-        read_topic.push_back(topic_sample);
-
-        let data = read_topic.pop_oldest();
-
-        // Data should be something.
-        assert!(data.is_some());
-        // There's still data
-        assert!(read_topic.has_data());
-        // But queue should be empty now.
-        assert_eq!(read_topic.get_data_queue_len(), 0);
     }
 }

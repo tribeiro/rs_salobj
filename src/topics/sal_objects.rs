@@ -1,8 +1,5 @@
-use crate::{
-    sal_info,
-    utils::xml_utils::{read_xml_interface, unwrap_xml_interface},
-};
-use std::{collections::HashMap, hash::Hash};
+use crate::utils::xml_utils::{read_xml_interface, unwrap_xml_interface};
+use std::collections::HashMap;
 
 use super::field_info;
 
