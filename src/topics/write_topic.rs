@@ -1,4 +1,4 @@
-use avro_rs::types::{Record, Value};
+use apache_avro::types::{Record, Value};
 
 use crate::{
     domain::Domain,
