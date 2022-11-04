@@ -12,6 +12,7 @@ use std::env;
 pub struct SalInfo {
     name: String,
     index: isize,
+    topic_subname: String,
     component_info: ComponentInfo,
     topic_schema: HashMap<String, Schema>,
 }
@@ -43,6 +44,7 @@ impl SalInfo {
         SalInfo {
             name: name.to_owned(),
             index: index,
+            topic_subname: topic_subname.clone(),
             component_info: component_info,
             topic_schema: topic_schema,
         }
@@ -89,6 +91,21 @@ impl SalInfo {
         } else {
             format!("{}", self.name)
         }
+    }
+
+    /// Get component name.
+    pub fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    /// Make schema registry topic name
+    pub fn make_topic_name(&self, topic_name: &str) -> String {
+        format!("lsst.{}.{}.{}", self.topic_subname, self.name, topic_name)
+        // "lsst.test.Test.logevent_heartbeat".to_owned()
+    }
+
+    pub fn get_sal_name(&self, topic_name: &str) -> String {
+        format!("{}_{}", self.get_name(), topic_name)
     }
 
     /// Get name of all commands topics.
@@ -169,7 +186,9 @@ impl SalInfo {
     ///
     /// If topic name is not part of the component.
     pub fn assert_is_valid_topic(&self, topic_name: &str) {
-        assert!(self.topic_schema.contains_key(topic_name))
+        assert!(self
+            .topic_schema
+            .contains_key(&self.get_sal_name(topic_name)))
     }
 }
 
@@ -266,7 +285,7 @@ mod tests {
     fn assert_is_valid_topic_with_valid_topic() {
         let sal_info = SalInfo::new("Test", 1);
 
-        sal_info.assert_is_valid_topic("Test_logevent_scalars")
+        sal_info.assert_is_valid_topic("logevent_scalars")
     }
 
     #[test]
@@ -274,7 +293,7 @@ mod tests {
     fn assert_is_valid_topic_with_invalid_topic() {
         let sal_info = SalInfo::new("Test", 1);
 
-        sal_info.assert_is_valid_topic("Test_logevent_badTopicName")
+        sal_info.assert_is_valid_topic("logevent_badTopicName")
     }
 
     #[test]
