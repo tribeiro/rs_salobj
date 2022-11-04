@@ -1,4 +1,4 @@
-use avro_rs::types::Record;
+use apache_avro::types::Record;
 
 use crate::{
     sal_info::SalInfo,
