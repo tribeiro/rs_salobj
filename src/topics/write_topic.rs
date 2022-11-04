@@ -194,7 +194,8 @@ mod tests {
 
     use super::*;
     use crate::domain::Domain;
-    use apache_avro::{types::Value, Writer};
+    use apache_avro::{types::Value, Decimal, Writer};
+    use num_bigint::ToBigInt;
 
     #[test]
     #[should_panic]
@@ -202,7 +203,7 @@ mod tests {
         let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1);
 
-        WriteTopic::new(domain, &sal_info, "Test_inexistentTopic");
+        WriteTopic::new(domain, &sal_info, "inexistentTopic");
     }
 
     #[test]
@@ -210,7 +211,7 @@ mod tests {
         let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1);
 
-        let topic_writer = WriteTopic::new(domain, &sal_info, "Test_scalars");
+        let topic_writer = WriteTopic::new(domain, &sal_info, "scalars");
 
         assert!(!topic_writer.is_open());
         assert!(!topic_writer.has_data());
@@ -221,20 +222,41 @@ mod tests {
         let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1);
 
-        let mut topic_writer = WriteTopic::new(domain, &sal_info, "Test_scalars");
+        let mut topic_writer = WriteTopic::new(domain, &sal_info, "scalars");
 
         let schema = WriteTopic::get_avro_schema(&sal_info, &topic_writer.get_sal_name());
 
         let mut data = WriteTopic::make_data_type(&schema);
 
+        data.put(
+            "private_sndStamp",
+            Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6),
+        );
+        data.put("private_origin", Value::Long(101));
+        data.put("private_identity", Value::String("myself".to_owned()));
+        data.put("private_seqNum", Value::Long(0));
+        data.put("private_rcvStamp", Value::Double(0.0));
+        data.put(
+            "salIndex",
+            Value::Long(sal_info.get_index().try_into().unwrap()),
+        );
+
         data.put("boolean0", Value::Boolean(true));
+        data.put("byte0", Value::Bytes(vec![1, 2, 3]));
+        data.put("short0", Value::Int(1));
         data.put("int0", Value::Int(1));
+        data.put("long0", Value::Long(1));
+        data.put("longLong0", Value::Long(1));
+        data.put("unsignedShort0", Value::Int(1));
+        data.put("unsignedInt0", Value::Int(1));
+        data.put("unsignedLong0", Value::Long(1));
         data.put("float0", Value::Float(1.0));
+        data.put("double0", Value::Double(1.0));
         data.put("string0", Value::String("This is a test!".to_owned()));
 
-        println!("{:?}", schema);
         let mut writer = Writer::new(&schema, Vec::new());
 
+        // Schema validation...
         match writer.append(data) {
             Ok(_) => println!("Data passes schema validation!"),
             Err(error) => {
@@ -242,7 +264,6 @@ mod tests {
                 panic!("Error!");
             }
         }
-        // writer.append(data).unwrap();
     }
 
     #[test]
@@ -250,7 +271,7 @@ mod tests {
         let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1);
 
-        let mut topic_writer = WriteTopic::new(domain, &sal_info, "Test_arrays");
+        let mut topic_writer = WriteTopic::new(domain, &sal_info, "arrays");
 
         let schema = WriteTopic::get_avro_schema(&sal_info, &topic_writer.get_sal_name());
 
