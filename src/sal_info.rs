@@ -1,7 +1,7 @@
 use crate::component_info::ComponentInfo;
 use crate::sal_enums;
 use crate::topics::topic_info::TopicInfo;
-use avro_rs::{
+use apache_avro::{
     types::{Record, Value},
     Schema,
 };
