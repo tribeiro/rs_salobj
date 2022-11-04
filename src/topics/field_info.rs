@@ -119,7 +119,7 @@ impl FieldInfo {
     fn get_avro_type_from_sal_type(sal_type: &str) -> &str {
         match sal_type {
             "boolean" => "boolean",
-            "byte" => "int",
+            "byte" => "bytes",
             "short" => "int",
             "int" => "int",
             "long" => "long",

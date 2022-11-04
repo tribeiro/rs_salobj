@@ -1,4 +1,4 @@
-use avro_rs::types::Record;
+use apache_avro::types::Record;
 
 use crate::{
     sal_info::SalInfo,
@@ -162,14 +162,14 @@ mod tests {
     fn read_topic_new_indexed_0_with_max_history() {
         let sal_info = SalInfo::new("Test", 0);
 
-        ReadTopic::new(&sal_info, "Test_scalars", 2);
+        ReadTopic::new(&sal_info, "scalars", 2);
     }
 
     #[test]
     fn read_topic_new_is_open() {
         let sal_info = SalInfo::new("Test", 1);
 
-        let read_topic = ReadTopic::new(&sal_info, "Test_scalars", 0);
+        let read_topic = ReadTopic::new(&sal_info, "scalars", 0);
 
         assert!(!read_topic.is_open())
     }
@@ -178,7 +178,7 @@ mod tests {
     fn basic_close() {
         let sal_info = SalInfo::new("Test", 1);
 
-        let mut read_topic = ReadTopic::new(&sal_info, "Test_scalars", 0);
+        let mut read_topic = ReadTopic::new(&sal_info, "scalars", 0);
 
         read_topic.basic_close();
 
@@ -190,7 +190,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1);
 
         // Need mutable instance for pushback to work
-        let read_topic = ReadTopic::new(&sal_info, "Test_scalars", 0);
+        let read_topic = ReadTopic::new(&sal_info, "scalars", 0);
 
         let data = read_topic.get();
 

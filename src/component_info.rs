@@ -143,7 +143,7 @@ impl ComponentInfo {
 mod tests {
 
     use super::*;
-    use avro_rs::{types::Record, Schema};
+    use apache_avro::{types::Record, Schema};
     use std::collections::HashSet;
 
     #[test]

@@ -90,8 +90,8 @@ impl TopicInfo {
     }
 
     /// Make schema for the topic.
-    pub fn make_schema(&self) -> avro_rs::Schema {
-        avro_rs::Schema::parse_str(&serde_json::to_string(&self.make_avro_schema()).unwrap())
+    pub fn make_schema(&self) -> apache_avro::Schema {
+        apache_avro::Schema::parse_str(&serde_json::to_string(&self.make_avro_schema()).unwrap())
             .unwrap()
     }
 
@@ -245,7 +245,7 @@ impl TopicInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use avro_rs::{types::Record, Schema};
+    use apache_avro::{types::Record, Schema};
     use std::collections::HashSet;
 
     fn get_expected_ackcmd_fields(indexed: bool) -> HashSet<String> {

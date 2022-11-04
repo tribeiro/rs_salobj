@@ -1,4 +1,4 @@
-use avro_rs::types::{Record, Value};
+use apache_avro::types::{Record, Value};
 
 use crate::{
     domain::Domain,
@@ -6,6 +6,9 @@ use crate::{
     topics::{base_topic::BaseTopic, topic_info::TopicInfo},
 };
 use chrono::Utc;
+use kafka::producer;
+use schema_registry_converter::async_impl::avro::AvroEncoder;
+use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
 
 /// Maximum value for the ``private_seqNum`` field of each topic,
 /// a 4 byte signed integer.
@@ -23,41 +26,52 @@ pub struct WriteTopic<'a> {
     /// SAL component information.
     sal_info: &'a SalInfo,
     /// The name of the topic.
-    sal_name: String,
+    topic_name: String,
     /// Is this instance open? `True` until `close` or `basic_close` is called.
-    open: bool,
     data_changed: bool,
     data: Option<Record<'a>>,
+    producer: Option<producer::Producer>,
 }
 
 impl<'a> BaseTopic for WriteTopic<'a> {
     fn get_topic_info(&self) -> &TopicInfo {
-        self.sal_info.get_topic_info(&self.sal_name).unwrap()
+        self.sal_info.get_topic_info(&self.topic_name).unwrap()
     }
 }
 
 impl<'a> WriteTopic<'a> {
-    pub fn new(domain: Domain, sal_info: &'a SalInfo, sal_name: &str) -> WriteTopic<'a> {
-        sal_info.assert_is_valid_topic(sal_name);
+    pub fn new(domain: Domain, sal_info: &'a SalInfo, topic_name: &str) -> WriteTopic<'a> {
+        sal_info.assert_is_valid_topic(topic_name);
 
         WriteTopic {
             domain: domain,
             sal_info: sal_info,
-            sal_name: sal_name.to_owned(),
-            open: false,
+            topic_name: topic_name.to_owned(),
             data_changed: false,
             data: None,
+            producer: None,
         }
     }
 
     pub fn get_sal_name(&self) -> String {
-        self.sal_name.to_owned()
+        format!(
+            "{}_{}",
+            self.sal_info.get_name(),
+            self.topic_name.to_owned()
+        )
     }
 
+    fn get_topic_name(&self) -> String {
+        self.sal_info.make_topic_name(&self.topic_name)
+    }
+
+    fn get_record_type(&self) -> String {
+        "value".to_owned()
+    }
     /// Returns an owned copy of the value of the internal flag that tracks if
     /// writer is open or close.
     pub fn is_open(&self) -> bool {
-        self.open
+        self.producer.is_some()
     }
 
     /// Has `data` ever been set?
@@ -68,12 +82,16 @@ impl<'a> WriteTopic<'a> {
         self.data.is_some()
     }
 
+    pub fn set_producer(&mut self, producer: producer::Producer) {
+        self.producer = Some(producer);
+    }
+
     /// A synchronous and possibly less thorough version of `close`.
     ///
     /// Intended for exit handlers and constructor error handlers.
     pub fn basic_close(&mut self) {
         if self.is_open() {
-            self.open = false;
+            self.producer = None;
         }
     }
 
@@ -96,20 +114,23 @@ impl<'a> WriteTopic<'a> {
     ///
     /// # Notes
     ///
-    /// Originally the `private_sndStamp` has to be tai but this is writting it
+    /// Originally the `private_sndStamp` has to be tai but this is writing it
     /// as utc. The precision is going to be microseconds.
-    pub async fn write(&mut self) -> Option<Record> {
+    pub async fn write(&mut self, encoder: &AvroEncoder<'a>) -> bool {
+        if !self.is_open() {
+            return false;
+        }
         match self.data.clone() {
             Some(mut data) => {
                 // read current time in microseconds, as int, convert to f32 then
                 // convert to seconds.
                 data.put(
                     "private_sndStamp",
-                    Value::Float(Utc::now().timestamp_micros() as f32 * 1e-6),
+                    Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6),
                 );
                 data.put(
                     "private_origin",
-                    Value::Int(self.domain.get_origin().try_into().unwrap()),
+                    Value::Long(self.domain.get_origin().try_into().unwrap()),
                 );
                 data.put(
                     "private_identity",
@@ -117,28 +138,52 @@ impl<'a> WriteTopic<'a> {
                 );
                 data.put(
                     "private_seqNum",
-                    Value::Int(0), // FIXME: This is supposed to be an increasing number
+                    Value::Long(0), // FIXME: This is supposed to be an increasing number
                 );
+                data.put("private_rcvStamp", Value::Double(0.0));
 
                 if self.sal_info.is_indexed() {
                     data.put(
                         "salIndex",
-                        Value::Int(self.sal_info.get_index().try_into().unwrap()),
+                        Value::Long(self.sal_info.get_index().try_into().unwrap()),
                     );
                 }
+
+                for (key, value) in &data.fields {
+                    match value {
+                        Value::Null => println!("Attribute {key} not set."),
+                        _ => continue,
+                    }
+                }
                 self.data_changed = false;
-                Some(data)
+                let topic_name = self.get_topic_name();
+                let record_type = self.get_record_type();
+
+                let key_strategy =
+                    SubjectNameStrategy::TopicRecordNameStrategy(topic_name.clone(), record_type);
+                let data_fields: Vec<(&str, Value)> =
+                    data.fields.iter().map(|(k, v)| (&**k, v.clone())).collect();
+
+                let bytes = encoder.encode(data_fields, key_strategy).await.unwrap();
+
+                if let Some(producer) = &mut self.producer {
+                    producer
+                        .send(&producer::Record::from_value(&topic_name, bytes))
+                        .unwrap();
+                }
+
+                true
             }
-            None => None,
+            None => false,
         }
     }
 
     /// Set and write data.
     ///
     /// Data resets after sent.
-    pub async fn set_write(&mut self, data: Record<'a>) {
+    pub async fn set_write(&mut self, data: Record<'a>, encoder: &AvroEncoder<'a>) {
         self.set(data);
-        self.write().await;
+        self.write(encoder).await;
         self.data_changed = true;
         self.data = None;
     }
@@ -149,7 +194,8 @@ mod tests {
 
     use super::*;
     use crate::domain::Domain;
-    use avro_rs::types::Value;
+    use apache_avro::{types::Value, Decimal, Writer};
+    use num_bigint::ToBigInt;
 
     #[test]
     #[should_panic]
@@ -157,7 +203,7 @@ mod tests {
         let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1);
 
-        WriteTopic::new(domain, &sal_info, "Test_inexistentTopic");
+        WriteTopic::new(domain, &sal_info, "inexistentTopic");
     }
 
     #[test]
@@ -165,7 +211,7 @@ mod tests {
         let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1);
 
-        let topic_writer = WriteTopic::new(domain, &sal_info, "Test_scalars");
+        let topic_writer = WriteTopic::new(domain, &sal_info, "scalars");
 
         assert!(!topic_writer.is_open());
         assert!(!topic_writer.has_data());
@@ -176,18 +222,48 @@ mod tests {
         let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1);
 
-        let mut topic_writer = WriteTopic::new(domain, &sal_info, "Test_scalars");
+        let mut topic_writer = WriteTopic::new(domain, &sal_info, "scalars");
 
         let schema = WriteTopic::get_avro_schema(&sal_info, &topic_writer.get_sal_name());
 
         let mut data = WriteTopic::make_data_type(&schema);
 
+        data.put(
+            "private_sndStamp",
+            Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6),
+        );
+        data.put("private_origin", Value::Long(101));
+        data.put("private_identity", Value::String("myself".to_owned()));
+        data.put("private_seqNum", Value::Long(0));
+        data.put("private_rcvStamp", Value::Double(0.0));
+        data.put(
+            "salIndex",
+            Value::Long(sal_info.get_index().try_into().unwrap()),
+        );
+
         data.put("boolean0", Value::Boolean(true));
+        data.put("byte0", Value::Bytes(vec![1, 2, 3]));
+        data.put("short0", Value::Int(1));
         data.put("int0", Value::Int(1));
+        data.put("long0", Value::Long(1));
+        data.put("longLong0", Value::Long(1));
+        data.put("unsignedShort0", Value::Int(1));
+        data.put("unsignedInt0", Value::Int(1));
+        data.put("unsignedLong0", Value::Long(1));
         data.put("float0", Value::Float(1.0));
+        data.put("double0", Value::Double(1.0));
         data.put("string0", Value::String("This is a test!".to_owned()));
 
-        assert!(topic_writer.set(data))
+        let mut writer = Writer::new(&schema, Vec::new());
+
+        // Schema validation...
+        match writer.append(data) {
+            Ok(_) => println!("Data passes schema validation!"),
+            Err(error) => {
+                println!("{:?}", error);
+                panic!("Error!");
+            }
+        }
     }
 
     #[test]
@@ -195,7 +271,7 @@ mod tests {
         let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1);
 
-        let mut topic_writer = WriteTopic::new(domain, &sal_info, "Test_arrays");
+        let mut topic_writer = WriteTopic::new(domain, &sal_info, "arrays");
 
         let schema = WriteTopic::get_avro_schema(&sal_info, &topic_writer.get_sal_name());
 
