@@ -68,6 +68,7 @@ impl<'a> WriteTopic<'a> {
     fn get_record_type(&self) -> String {
         "value".to_owned()
     }
+
     /// Returns an owned copy of the value of the internal flag that tracks if
     /// writer is open or close.
     pub fn is_open(&self) -> bool {
@@ -194,8 +195,7 @@ mod tests {
 
     use super::*;
     use crate::domain::Domain;
-    use apache_avro::{types::Value, Decimal, Writer};
-    use num_bigint::ToBigInt;
+    use apache_avro::{types::Value, Writer};
 
     #[test]
     #[should_panic]
