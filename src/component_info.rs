@@ -159,7 +159,8 @@ mod tests {
             component_info.description,
             "A SAL component designed to support testing SAL itself."
         );
-        assert_eq!(component_info.ack_cmd.get_sal_name(), "ackcmd");
+        assert_eq!(component_info.ack_cmd.get_topic_name(), "ackcmd");
+        assert_eq!(component_info.ack_cmd.get_sal_name(), "Test_ackcmd");
         assert!(
             component_info.commands.contains_key("Test_command_start"),
             "{}",

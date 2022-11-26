@@ -1,6 +1,7 @@
 use apache_avro::types::{Record, Value};
 
 use crate::{
+    base_topic,
     domain::Domain,
     sal_info::SalInfo,
     topics::{base_topic::BaseTopic, topic_info::TopicInfo},
@@ -33,11 +34,7 @@ pub struct WriteTopic<'a> {
     producer: Option<producer::Producer>,
 }
 
-impl<'a> BaseTopic for WriteTopic<'a> {
-    fn get_topic_info(&self) -> &TopicInfo {
-        self.sal_info.get_topic_info(&self.topic_name).unwrap()
-    }
-}
+base_topic!(WriteTopic);
 
 impl<'a> WriteTopic<'a> {
     pub fn new(domain: Domain, sal_info: &'a SalInfo, topic_name: &str) -> WriteTopic<'a> {
@@ -51,22 +48,6 @@ impl<'a> WriteTopic<'a> {
             data: None,
             producer: None,
         }
-    }
-
-    pub fn get_sal_name(&self) -> String {
-        format!(
-            "{}_{}",
-            self.sal_info.get_name(),
-            self.topic_name.to_owned()
-        )
-    }
-
-    fn get_topic_name(&self) -> String {
-        self.sal_info.make_topic_name(&self.topic_name)
-    }
-
-    fn get_record_type(&self) -> String {
-        "value".to_owned()
     }
 
     /// Returns an owned copy of the value of the internal flag that tracks if
@@ -157,7 +138,7 @@ impl<'a> WriteTopic<'a> {
                     }
                 }
                 self.data_changed = false;
-                let topic_name = self.get_topic_name();
+                let topic_name = self.get_topic_publish_name();
                 let record_type = self.get_record_type();
 
                 let key_strategy =

@@ -34,12 +34,12 @@ async fn main() {
 
     println!(
         "Reading topic: {} group: {}",
-        topic_reader.get_topic_name(),
+        topic_reader.get_topic_publish_name(),
         topic_reader.get_record_type()
     );
 
     let consumer = Consumer::from_hosts(vec!["localhost:9092".to_owned()])
-        .with_topic(topic_reader.get_topic_name())
+        .with_topic(topic_reader.get_topic_publish_name())
         .with_fallback_offset(FetchOffset::Latest)
         .with_group(format!("{}", domain.get_origin()))
         .with_offset_storage(GroupOffsetStorage::Kafka)

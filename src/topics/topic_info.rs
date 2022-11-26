@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 pub struct TopicInfo {
     component_name: String,
     topic_subname: String,
-    sal_name: String,
+    topic_name: String,
     fields: HashMap<String, field_info::FieldInfo>,
     description: String,
     partitions: usize,
@@ -29,7 +29,7 @@ impl TopicInfo {
         TopicInfo {
             component_name: String::new(),
             topic_subname: String::new(),
-            sal_name: String::new(),
+            topic_name: String::new(),
             fields: HashMap::new(),
             description: String::new(),
             partitions: 0,
@@ -40,7 +40,7 @@ impl TopicInfo {
         TopicInfo {
             component_name: String::from(component_name),
             topic_subname: String::from(topic_subname),
-            sal_name: String::from("ackcmd"),
+            topic_name: String::from("ackcmd"),
             fields: TopicInfo::get_ackcmd_fields(indexed),
             description: String::from("Command acknowledgement"),
             partitions: 1,
@@ -56,15 +56,19 @@ impl TopicInfo {
         TopicInfo {
             component_name: sal_topic.get_subsystem(),
             topic_subname: String::from(topic_subname),
-            sal_name: sal_topic.get_topic_name(),
+            topic_name: sal_topic.get_topic_name(),
             fields: private_fields.into_iter().chain(fields).collect(),
             description: sal_topic.get_description(),
             partitions: 1,
         }
     }
 
+    pub fn get_topic_name(&self) -> &str {
+        &self.topic_name
+    }
+
     pub fn get_sal_name(&self) -> String {
-        return self.sal_name.clone();
+        format!("{}_{}", self.component_name, self.topic_name)
     }
 
     pub fn get_fields_name(&self) -> HashSet<String> {
@@ -78,7 +82,7 @@ impl TopicInfo {
 
         AvroSchema {
             avro_message_type: "record".to_owned(),
-            name: self.sal_name.to_owned(),
+            name: self.topic_name.to_owned(),
             namespace: format!("lsst.sal.{topic_subname}.{component_name}"),
             fields: self
                 .fields
@@ -327,7 +331,7 @@ mod tests {
 
         assert_eq!(ack_cmd.component_name, "Test");
         assert_eq!(ack_cmd.topic_subname, "unit_test");
-        assert_eq!(ack_cmd.sal_name, "ackcmd");
+        assert_eq!(ack_cmd.topic_name, "ackcmd");
         assert_eq!(ack_cmd.description, "Command acknowledgement");
         assert_eq!(
             expected_ackcmd_field,
