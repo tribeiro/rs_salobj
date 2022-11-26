@@ -5,7 +5,10 @@ use apache_avro::{
     types::{Record, Value},
     Schema,
 };
-use schema_registry_converter::async_impl::{avro::AvroEncoder, schema_registry::SrSettings};
+use schema_registry_converter::async_impl::{
+    avro::{AvroDecoder, AvroEncoder},
+    schema_registry::SrSettings,
+};
 use std::collections::HashMap;
 use std::env;
 
@@ -195,6 +198,11 @@ impl SalInfo {
     pub fn make_encoder<'a>() -> AvroEncoder<'a> {
         let sr_settings = SrSettings::new("http://localhost:8081".to_owned());
         AvroEncoder::new(sr_settings)
+    }
+
+    pub fn make_decoder<'a>() -> AvroDecoder<'a> {
+        let sr_settings = SrSettings::new("http://localhost:8081".to_owned());
+        AvroDecoder::new(sr_settings)
     }
 }
 
