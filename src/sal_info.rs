@@ -131,57 +131,57 @@ impl SalInfo {
     ///
     /// This high-level method will identify if a topic is a command, event,
     /// telemetry or ackcmd and return the appropriate TopicInfo.
-    pub fn get_topic_info(&self, topic_name: &str) -> Option<&TopicInfo> {
-        if self.is_ackcmd(topic_name) {
+    pub fn get_topic_info(&self, sal_name: &str) -> Option<&TopicInfo> {
+        if self.is_ackcmd(sal_name) {
             Some(self.component_info.get_ackcmd_topic_info())
-        } else if self.is_command(topic_name) {
-            self.get_command_topic_info(topic_name)
-        } else if self.is_event(topic_name) {
-            self.get_event_topic_info(topic_name)
+        } else if self.is_command(sal_name) {
+            self.get_command_topic_info(sal_name)
+        } else if self.is_event(sal_name) {
+            self.get_event_topic_info(sal_name)
         } else {
-            self.get_telemetry_topic_info(topic_name)
+            self.get_telemetry_topic_info(sal_name)
         }
     }
 
     /// Check if topic name matches command acknowledgement.
-    fn is_ackcmd(&self, topic_name: &str) -> bool {
-        topic_name == "ackcmd"
+    fn is_ackcmd(&self, sal_name: &str) -> bool {
+        sal_name == self.get_sal_name("ackcmd")
     }
 
     /// Check if topic name matches command name.
     ///
     /// This method does not test if the topic is a valid topic from the
     /// component.
-    fn is_command(&self, topic_name: &str) -> bool {
-        topic_name.contains("_command_")
+    fn is_command(&self, sal_name: &str) -> bool {
+        sal_name.contains("_command_")
     }
 
     /// Check if topic name matches event name.
     ///
     /// This method does not test if the topic is a valid topic from the
     /// component.
-    fn is_event(&self, topic_name: &str) -> bool {
-        topic_name.contains("_logevent_")
+    fn is_event(&self, sal_name: &str) -> bool {
+        sal_name.contains("_logevent_")
     }
 
     /// Get topic info for a particular command.
-    fn get_command_topic_info(&self, command_name: &str) -> Option<&TopicInfo> {
-        self.component_info.get_command_topic_info(command_name)
+    fn get_command_topic_info(&self, sal_name: &str) -> Option<&TopicInfo> {
+        self.component_info.get_command_topic_info(sal_name)
     }
 
     /// Get topic info for a particular event.
-    fn get_event_topic_info(&self, event_name: &str) -> Option<&TopicInfo> {
-        self.component_info.get_event_topic_info(event_name)
+    fn get_event_topic_info(&self, sal_name: &str) -> Option<&TopicInfo> {
+        self.component_info.get_event_topic_info(sal_name)
     }
 
     /// Get topic info for a particular telemetry.
-    fn get_telemetry_topic_info(&self, telemetry_name: &str) -> Option<&TopicInfo> {
-        self.component_info.get_telemetry_topic_info(telemetry_name)
+    fn get_telemetry_topic_info(&self, sal_name: &str) -> Option<&TopicInfo> {
+        self.component_info.get_telemetry_topic_info(sal_name)
     }
 
     /// Get schema for topic.
-    pub fn get_topic_schema(&self, topic_name: &str) -> Option<&Schema> {
-        self.topic_schema.get(topic_name)
+    pub fn get_topic_schema(&self, sal_name: &str) -> Option<&Schema> {
+        self.topic_schema.get(sal_name)
     }
 
     /// Assert that a topic name is a valid topic for this component.
@@ -315,7 +315,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get ackcmd
-        sal_info.get_topic_info(&"ackcmd").unwrap();
+        sal_info.get_topic_info(&"Test_ackcmd").unwrap();
     }
 
     #[test]
