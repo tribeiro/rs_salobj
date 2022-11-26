@@ -1,4 +1,5 @@
 use crate::{
+    base_topic,
     sal_info::SalInfo,
     topics::{base_topic::BaseTopic, topic_info::TopicInfo},
 };
@@ -16,6 +17,8 @@ const DEFAULT_QUEUE_LEN: usize = 100;
 
 // Minimum value for the ``queue_len`` constructor argument.
 const MIN_QUEUE_LEN: usize = 10;
+
+const POOL_WAIT_TIME: std::time::Duration = std::time::Duration::from_millis(1000);
 
 /// Base struct for reading a topic.
 pub struct ReadTopic<'a> {
@@ -43,6 +46,8 @@ pub struct ReadTopic<'a> {
     schema: Schema,
 }
 
+base_topic!(ReadTopic);
+
 impl<'a> ReadTopic<'a> {
     pub fn new(sal_info: &'a SalInfo, topic_name: &str, max_history: usize) -> ReadTopic<'a> {
         sal_info.assert_is_valid_topic(topic_name);
@@ -53,12 +58,9 @@ impl<'a> ReadTopic<'a> {
             )
         }
 
-        let sal_name = format!("{}_{}", sal_info.get_name(), topic_name.to_owned());
+        let sal_name = sal_info.get_sal_name(&topic_name);
 
-        let schema = ReadTopic::get_avro_schema(
-            &sal_info,
-            &format!("{}_{}", sal_info.get_name(), topic_name),
-        );
+        let schema = ReadTopic::get_avro_schema(&sal_info, &sal_name);
 
         ReadTopic {
             sal_info: sal_info,
@@ -70,22 +72,6 @@ impl<'a> ReadTopic<'a> {
             consumer: None,
             schema: schema,
         }
-    }
-
-    pub fn get_sal_name(&self) -> String {
-        format!(
-            "{}_{}",
-            self.sal_info.get_name(),
-            self.topic_name.to_owned()
-        )
-    }
-
-    pub fn get_topic_name(&self) -> String {
-        self.sal_info.make_topic_name(&self.topic_name)
-    }
-
-    pub fn get_record_type(&self) -> String {
-        "value".to_owned()
     }
 
     pub fn get_max_history(&self) -> usize {
@@ -126,6 +112,7 @@ impl<'a> ReadTopic<'a> {
     /// It does not change which message will be returned by `aget` or `get`.
     pub fn flush(&mut self) {
         self.flushed = true;
+        self.data_queue.clear();
     }
 
     /// Get the most recent message, or `None` if no data has ever been seen
@@ -213,18 +200,12 @@ impl<'a> ReadTopic<'a> {
                         return true;
                     }
                     println!("No new data, waiting to pool again...");
-                    sleep(std::time::Duration::from_millis(1000)).await;
+                    sleep(POOL_WAIT_TIME).await;
                 }
                 return false;
             }
             None => false,
         }
-    }
-}
-
-impl<'a> BaseTopic for ReadTopic<'a> {
-    fn get_topic_info(&self) -> &TopicInfo {
-        self.sal_info.get_topic_info(&self.topic_name).unwrap()
     }
 }
 
