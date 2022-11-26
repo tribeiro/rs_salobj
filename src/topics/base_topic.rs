@@ -12,8 +12,17 @@ pub trait BaseTopic {
     ///
     /// Events have the format, `logevent_<event_name>`, telemetry are simply
     /// `<telemetry_name>` and commands, `command_<command_name>`.
-    fn get_sal_name(&self) -> String {
-        self.get_topic_info().get_sal_name()
+    fn get_sal_name(&self) -> String;
+
+    /// Return topic publish name.
+    ///
+    /// This follows the format:
+    /// "lsst.<topic_subname>.<component_name>.<topic_name>".
+    fn get_topic_publish_name(&self) -> String;
+
+    /// String with the record type used in kafka.
+    fn get_record_type(&self) -> String {
+        "value".to_owned()
     }
 
     /// Get avro schema.
