@@ -8,7 +8,6 @@ use apache_avro::{
     Schema,
 };
 use kafka::consumer::{self, Consumer};
-use schema_registry_converter::async_impl::avro::AvroDecoder;
 use std::collections::VecDeque;
 use tokio::time::sleep;
 
@@ -21,13 +20,11 @@ const MIN_QUEUE_LEN: usize = 10;
 const POOL_WAIT_TIME: std::time::Duration = std::time::Duration::from_millis(1000);
 
 /// Base struct for reading a topic.
-pub struct ReadTopic<'a> {
+pub struct ReadTopic<'a, 'b> {
     /// SAL component information.
-    sal_info: &'a SalInfo,
+    sal_info: &'a SalInfo<'b>,
     /// The name of the topic.
     topic_name: String,
-    /// Was the data flushed?
-    flushed: bool,
     /// Maximum number of historical items to read when starting up.
     ///
     /// * 0 is required for commands, events, and the ackcmd topic.
@@ -48,8 +45,12 @@ pub struct ReadTopic<'a> {
 
 base_topic!(ReadTopic);
 
-impl<'a> ReadTopic<'a> {
-    pub fn new(sal_info: &'a SalInfo, topic_name: &str, max_history: usize) -> ReadTopic<'a> {
+impl<'a, 'b> ReadTopic<'a, 'b> {
+    pub fn new(
+        sal_info: &'a SalInfo<'b>,
+        topic_name: &str,
+        max_history: usize,
+    ) -> ReadTopic<'a, 'b> {
         sal_info.assert_is_valid_topic(topic_name);
 
         if sal_info.is_indexed() && sal_info.get_index() == 0 && max_history > 1 {
@@ -65,7 +66,6 @@ impl<'a> ReadTopic<'a> {
         ReadTopic {
             sal_info: sal_info,
             topic_name: topic_name.to_owned(),
-            flushed: false,
             max_history: max_history,
             data_queue: VecDeque::with_capacity(DEFAULT_QUEUE_LEN),
             current_data: None,
@@ -111,7 +111,6 @@ impl<'a> ReadTopic<'a> {
     /// until a new message arrives.
     /// It does not change which message will be returned by `aget` or `get`.
     pub fn flush(&mut self) {
-        self.flushed = true;
         self.data_queue.clear();
     }
 
@@ -154,29 +153,25 @@ impl<'a> ReadTopic<'a> {
     /// queue is empty wait up to timeout for new data to arrive and return it.
     /// If no data is received in time, return `None`.
     async fn wait_next(&mut self, timeout: std::time::Duration) -> Option<Record> {
-        // TODO: Finish implementation.
-        if self.flushed {
-            // TODO: Get the most recent data that was published after flush
-            // was called.
-            return None;
-        } else {
-            // TODO: Get the next data in the queue
-            let mut record = Record::new(&self.schema).unwrap();
-            let value = self.data_queue.pop_front();
-            match value {
-                Some(Value::Record(record_value)) => {
-                    for (field, value) in record_value.iter() {
-                        record.put(field, value.clone());
-                    }
-                }
-                _ => return None,
-            }
-
-            return Some(record);
+        if self.data_queue.is_empty() {
+            self.pool(timeout).await;
         }
+        // TODO: Get the next data in the queue
+        let mut record = Record::new(&self.schema).unwrap();
+        let value = self.data_queue.pop_front();
+        match value {
+            Some(Value::Record(record_value)) => {
+                for (field, value) in record_value.iter() {
+                    record.put(field, value.clone());
+                }
+            }
+            _ => return None,
+        }
+
+        return Some(record);
     }
 
-    pub async fn pool(&mut self, decoder: &AvroDecoder<'a>, timeout: std::time::Duration) -> bool {
+    pub async fn pool(&mut self, timeout: std::time::Duration) -> bool {
         match &mut self.consumer {
             Some(consumer) => {
                 let timer_task = tokio::spawn(async move {
@@ -188,7 +183,7 @@ impl<'a> ReadTopic<'a> {
                     let mut got_data = false;
                     for ms in messages.iter() {
                         for m in ms.messages() {
-                            let data = decoder.decode(Some(m.value)).await.unwrap().value;
+                            let data = self.sal_info.decode(Some(m.value)).await.unwrap().value;
                             self.data_queue.push_back(data);
                         }
                         got_data = true;
