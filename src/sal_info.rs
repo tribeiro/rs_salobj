@@ -5,23 +5,30 @@ use apache_avro::{
     types::{Record, Value},
     Schema,
 };
-use schema_registry_converter::async_impl::{
-    avro::{AvroDecoder, AvroEncoder},
-    schema_registry::SrSettings,
+use schema_registry_converter::{
+    async_impl::{
+        avro::{AvroDecoder, AvroEncoder},
+        schema_registry::SrSettings,
+    },
+    avro_common::DecodeResult,
+    error::SRCError,
+    schema_registry_common::SubjectNameStrategy,
 };
 use std::collections::HashMap;
 use std::env;
 
 ///Information for one SAL component and index.
-pub struct SalInfo {
+pub struct SalInfo<'coders> {
     name: String,
     index: isize,
     topic_subname: String,
     component_info: ComponentInfo,
     topic_schema: HashMap<String, Schema>,
+    encoder: AvroEncoder<'coders>,
+    decoder: AvroDecoder<'coders>,
 }
 
-impl SalInfo {
+impl<'encoder> SalInfo<'encoder> {
     /// Create a new instance of `SalInfo`.
     pub fn new(name: &str, index: isize) -> SalInfo {
         let topic_subname = match env::var("LSST_TOPIC_SUBNAME") {
@@ -51,6 +58,8 @@ impl SalInfo {
             topic_subname: topic_subname.clone(),
             component_info: component_info,
             topic_schema: topic_schema,
+            encoder: SalInfo::make_encoder(),
+            decoder: SalInfo::make_decoder(),
         }
     }
 
@@ -193,6 +202,18 @@ impl SalInfo {
         assert!(self
             .topic_schema
             .contains_key(&self.get_sal_name(topic_name)))
+    }
+
+    pub async fn encode(
+        &self,
+        data_fields: Vec<(&str, Value)>,
+        key_strategy: SubjectNameStrategy,
+    ) -> Result<Vec<u8>, SRCError> {
+        self.encoder.encode(data_fields, key_strategy).await
+    }
+
+    pub async fn decode(&self, bytes: Option<&[u8]>) -> Result<DecodeResult, SRCError> {
+        self.decoder.decode(bytes).await
     }
 
     pub fn make_encoder<'a>() -> AvroEncoder<'a> {
