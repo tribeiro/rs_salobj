@@ -48,12 +48,9 @@ async fn main() {
 
     topic_reader.set_consumer(consumer);
 
-    let decoder = SalInfo::make_decoder();
-
     println!("Reader heartbeats...");
     for i in 0..10 {
         println!("Iteration {i}...");
-        topic_reader.pool(&decoder, Duration::from_secs(5)).await;
         println!("==> reading data queue!");
         loop {
             if let Some(new_data) = topic_reader.pop_next(false, Duration::from_secs(1)).await {
