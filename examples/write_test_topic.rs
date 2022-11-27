@@ -38,7 +38,6 @@ async fn main() {
     topic_writer.set_producer(producer);
 
     let test_scalars_schema = WriteTopic::get_avro_schema(&sal_info, &topic_writer.get_sal_name());
-    let encoder = SalInfo::make_encoder();
 
     println!("Writing heartbeat...");
     for i in 0..10 {
@@ -47,7 +46,7 @@ async fn main() {
 
         test_scalars_record.put("heartbeat", Value::Boolean(false));
 
-        topic_writer.set_write(test_scalars_record, &encoder).await;
+        topic_writer.set_write(test_scalars_record).await;
         time::sleep(time::Duration::from_secs(1)).await;
     }
     println!("Done...");
