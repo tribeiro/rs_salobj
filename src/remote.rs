@@ -9,29 +9,29 @@ use std::collections::HashMap;
 ///
 /// If a SAL component listens to or commands other SAL components
 /// then it will have one Remote for each such component.
-pub struct Remote {
+pub struct Remote<'a> {
     name: String,
     index: isize,
     domain: domain::Domain,
-    sal_info: sal_info::SalInfo,
+    sal_info: sal_info::SalInfo<'a>,
     commands: HashMap<String, remote_command::RemoteCommand>,
     events: HashMap<String, remote_event::RemoteEvent>,
     telemetry: HashMap<String, remote_telemetry::RemoteTelemetry>,
     started: bool,
 }
 
-impl Remote {
+impl<'a> Remote<'a> {
     pub fn new(
         domain: domain::Domain,
-        name: &str,
+        name: &'a str,
         index: &isize,
         readonly: bool,
         include: Vec<String>,
         exclude: Vec<String>,
         evt_max_history: usize,
-    ) -> Remote {
+    ) -> Remote<'a> {
         let mut remote = Remote {
-            name: String::from(name),
+            name: name.to_owned(),
             domain: domain,
             index: index.clone(),
             sal_info: sal_info::SalInfo::new(name, *index),
@@ -45,7 +45,7 @@ impl Remote {
         remote
     }
 
-    pub fn from_name_index(domain: domain::Domain, name: &str, index: &isize) -> Remote {
+    pub fn from_name_index(domain: domain::Domain, name: &'a str, index: &isize) -> Remote<'a> {
         Remote::new(domain, name, index, true, Vec::new(), Vec::new(), 1)
     }
 
@@ -158,10 +158,6 @@ impl Remote {
     /// Get component index.
     pub fn get_index(&self) -> isize {
         self.index.clone()
-    }
-
-    pub fn get_salindex(&self) -> &sal_info::SalInfo {
-        &self.sal_info
     }
 }
 
