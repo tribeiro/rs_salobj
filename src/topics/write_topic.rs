@@ -8,7 +8,6 @@ use crate::{
 };
 use chrono::Utc;
 use kafka::producer;
-use schema_registry_converter::async_impl::avro::AvroEncoder;
 use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
 
 /// Maximum value for the ``private_seqNum`` field of each topic,
@@ -21,11 +20,11 @@ use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
 const MAX_SEQ_NUM: i64 = i64::MAX;
 
 /// Base struct for writing a topic.
-pub struct WriteTopic<'a> {
+pub struct WriteTopic<'a, 'b> {
     /// Domain information
     domain: Domain,
     /// SAL component information.
-    sal_info: &'a SalInfo,
+    sal_info: &'a SalInfo<'b>,
     /// The name of the topic.
     topic_name: String,
     /// Is this instance open? `True` until `close` or `basic_close` is called.
@@ -36,8 +35,8 @@ pub struct WriteTopic<'a> {
 
 base_topic!(WriteTopic);
 
-impl<'a> WriteTopic<'a> {
-    pub fn new(domain: Domain, sal_info: &'a SalInfo, topic_name: &str) -> WriteTopic<'a> {
+impl<'a, 'b> WriteTopic<'a, 'b> {
+    pub fn new(domain: Domain, sal_info: &'a SalInfo<'b>, topic_name: &str) -> WriteTopic<'a, 'b> {
         sal_info.assert_is_valid_topic(topic_name);
 
         WriteTopic {
@@ -98,7 +97,7 @@ impl<'a> WriteTopic<'a> {
     ///
     /// Originally the `private_sndStamp` has to be tai but this is writing it
     /// as utc. The precision is going to be microseconds.
-    pub async fn write(&mut self, encoder: &AvroEncoder<'a>) -> bool {
+    pub async fn write(&mut self) -> bool {
         if !self.is_open() {
             return false;
         }
@@ -146,7 +145,11 @@ impl<'a> WriteTopic<'a> {
                 let data_fields: Vec<(&str, Value)> =
                     data.fields.iter().map(|(k, v)| (&**k, v.clone())).collect();
 
-                let bytes = encoder.encode(data_fields, key_strategy).await.unwrap();
+                let bytes = self
+                    .sal_info
+                    .encode(data_fields, key_strategy)
+                    .await
+                    .unwrap();
 
                 if let Some(producer) = &mut self.producer {
                     producer
@@ -163,9 +166,9 @@ impl<'a> WriteTopic<'a> {
     /// Set and write data.
     ///
     /// Data resets after sent.
-    pub async fn set_write(&mut self, data: Record<'a>, encoder: &AvroEncoder<'a>) {
+    pub async fn set_write(&mut self, data: Record<'a>) {
         self.set(data);
-        self.write(encoder).await;
+        self.write().await;
         self.data_changed = true;
         self.data = None;
     }
