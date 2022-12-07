@@ -28,6 +28,7 @@ mod component_info;
 pub mod domain;
 mod error;
 mod remote;
+pub mod generics;
 pub mod sal_enums;
 pub mod sal_info;
 mod sal_subsystem;
