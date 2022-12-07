@@ -7,13 +7,6 @@ pub enum SalRetCode {
     TooManyHandles = -3,
     NotDefined = -4,
 
-    // Generic State machine states
-    StateDisabled = 1,
-    StateEnabled = 2,
-    StateFault = 3,
-    StateOffline = 4,
-    StateStandby = 5,
-
     // Timeout return codes
     Timeout = -5,
     SignalInterrupt = -6,
@@ -97,5 +90,42 @@ pub fn is_ack_good(ack: &SalRetCode) -> bool {
         SalRetCode::CmdComplete,
     ]
     .contains(ack)
+}
+
+/// Standard state enumeration.
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum State {
+    // Generic State machine states
+    Invalid,
+    Disabled = 1,
+    Enabled = 2,
+    Fault = 3,
+    Offline = 4,
+    Standby = 5,
+}
+
+impl FromStr for State {
+    type Err = ParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Disabled" => Ok(State::Disabled),
+            "Enabled" => Ok(State::Enabled),
+            "Fault" => Ok(State::Fault),
+            "Offline" => Ok(State::Offline),
+            "Standby" => Ok(State::Standby),
+            _ => Ok(State::Invalid),
+        }
+    }
+}
+
+impl fmt::Display for State {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Write strictly the first element into the supplied output
+        // stream: `f`. Returns `fmt::Result` which indicates whether the
+        // operation succeeded or failed. Note that `write!` uses syntax which
+        // is very similar to `println!`.
+        write!(f, "{:?}", self)
+    }
 }
 
