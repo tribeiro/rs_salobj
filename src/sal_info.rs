@@ -18,19 +18,19 @@ use std::collections::HashMap;
 use std::env;
 
 ///Information for one SAL component and index.
-pub struct SalInfo<'coders> {
+pub struct SalInfo<'a> {
     name: String,
     index: isize,
     topic_subname: String,
     component_info: ComponentInfo,
     topic_schema: HashMap<String, Schema>,
-    encoder: AvroEncoder<'coders>,
-    decoder: AvroDecoder<'coders>,
+    encoder: AvroEncoder<'a>,
+    decoder: AvroDecoder<'a>,
 }
 
-impl<'encoder> SalInfo<'encoder> {
+impl<'a> SalInfo<'a> {
     /// Create a new instance of `SalInfo`.
-    pub fn new(name: &str, index: isize) -> SalInfo {
+    pub fn new(name: &str, index: isize) -> SalInfo<'a> {
         let topic_subname = match env::var("LSST_TOPIC_SUBNAME") {
             Ok(val) => val,
             Err(_) => panic!("You must define environment variable LSST_TOPIC_SUBNAME"),
@@ -216,12 +216,12 @@ impl<'encoder> SalInfo<'encoder> {
         self.decoder.decode(bytes).await
     }
 
-    pub fn make_encoder<'a>() -> AvroEncoder<'a> {
+    pub fn make_encoder<'b>() -> AvroEncoder<'b> {
         let sr_settings = SrSettings::new("http://localhost:8081".to_owned());
         AvroEncoder::new(sr_settings)
     }
 
-    pub fn make_decoder<'a>() -> AvroDecoder<'a> {
+    pub fn make_decoder<'b>() -> AvroDecoder<'b> {
         let sr_settings = SrSettings::new("http://localhost:8081".to_owned());
         AvroDecoder::new(sr_settings)
     }
