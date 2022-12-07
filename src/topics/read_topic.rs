@@ -1,9 +1,6 @@
 use crate::{domain::Domain, sal_info::SalInfo, topics::base_topic::BaseTopic};
-use apache_avro::{
-    types::{Record, Value},
-    Schema,
-};
-use kafka::consumer::{self, Consumer};
+use apache_avro::types::Value;
+use kafka::consumer::{Consumer, FetchOffset, GroupOffsetStorage};
 use std::collections::VecDeque;
 use tokio::time::sleep;
 
@@ -13,14 +10,14 @@ const DEFAULT_QUEUE_LEN: usize = 100;
 // Minimum value for the ``queue_len`` constructor argument.
 const MIN_QUEUE_LEN: usize = 10;
 
-const POOL_WAIT_TIME: std::time::Duration = std::time::Duration::from_millis(1000);
+const POOL_WAIT_TIME: std::time::Duration = std::time::Duration::from_millis(10);
 
 /// Base struct for reading a topic.
-pub struct ReadTopic<'a, 'b> {
-    /// SAL component information.
-    sal_info: &'a SalInfo<'b>,
+pub struct ReadTopic {
     /// The name of the topic.
     topic_name: String,
+    /// The name of the topic in the data cloud.
+    topic_publish_name: String,
     /// Maximum number of historical items to read when starting up.
     ///
     /// * 0 is required for commands, events, and the ackcmd topic.
@@ -33,20 +30,23 @@ pub struct ReadTopic<'a, 'b> {
     //     that is still in the read queue, in the order received.
     //     max_history > 1 is forbidden, because it is difficult to implement.
     max_history: usize,
+    /// Sample of the last data seen.
+    current_data: Option<Value>,
+    /// Data queue.
     data_queue: VecDeque<Value>,
-    current_data: Option<Record<'a>>,
-    consumer: Option<consumer::Consumer>,
-    schema: Schema,
+    /// Topic consumer.
+    consumer: Consumer,
 }
 
 impl BaseTopic for ReadTopic {}
 
-impl<'a, 'b> ReadTopic<'a, 'b> {
+impl ReadTopic {
     pub fn new(
-        sal_info: &'a SalInfo<'b>,
         topic_name: &str,
+        sal_info: &SalInfo,
+        domain: &Domain,
         max_history: usize,
-    ) -> ReadTopic<'a, 'b> {
+    ) -> ReadTopic {
         sal_info.assert_is_valid_topic(topic_name);
 
         if sal_info.is_indexed() && sal_info.get_index() == 0 && max_history > 1 {
@@ -55,29 +55,41 @@ impl<'a, 'b> ReadTopic<'a, 'b> {
             )
         }
 
-        let sal_name = sal_info.get_sal_name(&topic_name);
-
-        let schema = ReadTopic::get_avro_schema(&sal_info, &sal_name);
+        let fetch_offset = if max_history > 0 {
+            FetchOffset::Earliest
+        } else {
+            FetchOffset::Latest
+        };
 
         ReadTopic {
-            sal_info: sal_info,
             topic_name: topic_name.to_owned(),
+            topic_publish_name: sal_info.make_topic_name(topic_name).to_owned(),
             max_history: max_history,
             data_queue: VecDeque::with_capacity(DEFAULT_QUEUE_LEN),
+            consumer: Consumer::from_hosts(vec!["localhost:9092".to_owned()])
+                .with_topic(sal_info.make_topic_name(topic_name))
+                .with_fallback_offset(fetch_offset)
+                .with_group(format!("{}", domain.get_origin()))
+                .with_offset_storage(GroupOffsetStorage::Kafka)
+                .create()
+                .unwrap(),
             current_data: None,
-            consumer: None,
-            schema: schema,
         }
     }
 
-    pub fn get_max_history(&self) -> usize {
-        self.max_history
+    /// Get the name of the topic.
+    pub fn get_topic_name(&self) -> String {
+        self.topic_name.to_owned()
     }
 
-    /// Returns an owned copy of the value of the internal flag that tracks if
-    /// reader is open or close.
-    pub fn is_open(&self) -> bool {
-        self.consumer.is_some()
+    /// Get the name of the topic used to publish data.
+    pub fn get_topic_publish_name(&self) -> String {
+        self.topic_publish_name.to_owned()
+    }
+
+    /// Get the size of the data queue.
+    pub fn get_max_history(&self) -> usize {
+        self.max_history
     }
 
     /// Has any data ever been seen for this topic?
@@ -87,18 +99,6 @@ impl<'a, 'b> ReadTopic<'a, 'b> {
     /// If sal_info was not started.
     pub fn has_data(&self) -> bool {
         self.current_data.is_some()
-    }
-
-    pub fn set_consumer(&mut self, consumer: Consumer) {
-        self.consumer = Some(consumer);
-    }
-    /// A synchronous and possibly less thorough version of `close`.
-    ///
-    /// Intended for exit handlers and constructor error handlers.
-    pub fn basic_close(&mut self) {
-        if self.is_open() {
-            self.consumer = None;
-        }
     }
 
     /// Flush the queue used by `get_oldest` and `next`.
@@ -115,18 +115,27 @@ impl<'a, 'b> ReadTopic<'a, 'b> {
     ///
     /// This method does not change which message will be returned by `aget`,
     /// `get_oldest`, and `next`.
-    pub fn get(&self) -> Option<Record> {
+    pub fn get(&self) -> Option<Value> {
         self.current_data.to_owned()
     }
 
-    /// Pop and return the oldest message from the queue, or `None` if the
+    /// Pop and return the newest message from the queue, or `None` if the
     /// queue is empty.
     ///
     /// This is a synchronous variant of `pop_next` that does not wait for a new
     /// message. This method affects which message will be returned by `next`,
     /// but not which message will be returned by `aget` or `get`.
-    pub fn pop_oldest(&self) -> Option<Record> {
-        self.current_data.to_owned()
+    pub async fn pop_back<'b>(
+        &mut self,
+        flush: bool,
+        timeout: std::time::Duration,
+        sal_info: &SalInfo<'b>,
+    ) -> Option<Value> {
+        if flush {
+            self.flush();
+        }
+        self.pool(timeout, sal_info).await;
+        self.data_queue.pop_back()
     }
 
     /// Pop and return the oldest message from the queue, waiting for data
@@ -135,68 +144,58 @@ impl<'a, 'b> ReadTopic<'a, 'b> {
     ///
     /// This method affects the data returned by `get_oldest`, but not the data
     /// returned by `aget` or `get`.
-    pub async fn pop_next(&mut self, flush: bool, timeout: std::time::Duration) -> Option<Record> {
+    pub async fn pop_front<'b>(
+        &mut self,
+        flush: bool,
+        timeout: std::time::Duration,
+        sal_info: &SalInfo<'b>,
+    ) -> Option<Value> {
         if flush {
             self.flush();
         }
-
-        self.wait_next(timeout).await
-    }
-
-    /// Implement waiting for new messages to arrive.
-    ///
-    /// If the data queue has data available, return the oldest message, if the
-    /// queue is empty wait up to timeout for new data to arrive and return it.
-    /// If no data is received in time, return `None`.
-    async fn wait_next(&mut self, timeout: std::time::Duration) -> Option<Record> {
         if self.data_queue.is_empty() {
-            self.pool(timeout).await;
+            self.pool(timeout, sal_info).await;
         }
-        // TODO: Get the next data in the queue
-        let mut record = Record::new(&self.schema).unwrap();
-        let value = self.data_queue.pop_front();
-        match value {
-            Some(Value::Record(record_value)) => {
-                for (field, value) in record_value.iter() {
-                    record.put(field, value.clone());
-                }
-            }
-            _ => return None,
-        }
-
-        return Some(record);
+        self.data_queue.pop_front()
     }
 
-    pub async fn pool(&mut self, timeout: std::time::Duration) -> bool {
-        match &mut self.consumer {
-            Some(consumer) => {
-                let timer_task = tokio::spawn(async move {
-                    sleep(timeout).await;
-                });
+    /// Pool for new data until there are no more data to pool.
+    ///
+    /// The data is pushed to a dequeue with limited size so calling this
+    /// method may cause older data to be dropped.
+    ///
+    /// This current implementation will simply pool for all the data, so if
+    /// the backlog is large it may take some tike to finish. A future
+    /// implementation will check the message offset and reset it to the head
+    /// of the data queue, avoiding unnecessary reads.
+    async fn pool<'b>(&mut self, timeout: std::time::Duration, sal_info: &SalInfo<'b>) -> bool {
+        let timer_task = tokio::spawn(async move {
+            sleep(timeout).await;
+        });
 
-                while !timer_task.is_finished() {
-                    let messages = consumer.poll().unwrap();
-                    let mut got_data = false;
-                    for ms in messages.iter() {
-                        for m in ms.messages() {
-                            let data = self.sal_info.decode(Some(m.value)).await.unwrap().value;
-                            self.data_queue.push_back(data);
-                        }
-                        got_data = true;
-                        consumer.consume_messageset(ms);
-                    }
-                    consumer.commit_consumed().unwrap();
-                    if got_data {
-                        timer_task.abort();
-                        return true;
-                    }
-                    println!("No new data, waiting to pool again...");
-                    sleep(POOL_WAIT_TIME).await;
+        let mut got_any_data = false;
+
+        while !timer_task.is_finished() {
+            let mut got_data = false;
+            let messages = self.consumer.poll().unwrap();
+            for ms in messages.iter() {
+                for m in ms.messages() {
+                    let data = sal_info.decode(Some(m.value)).await.unwrap().value;
+                    self.current_data = Some(data.clone());
+                    self.data_queue.push_back(data);
                 }
-                return false;
+                got_any_data = true;
+                got_data = true;
+                self.consumer.consume_messageset(ms).unwrap();
             }
-            None => false,
+            self.consumer.commit_consumed().unwrap();
+            if !got_data && got_any_data {
+                timer_task.abort();
+                return got_any_data;
+            }
+            sleep(POOL_WAIT_TIME).await;
         }
+        return false;
     }
 }
 
@@ -209,37 +208,18 @@ mod tests {
         expected = "max_history=2 must be 0 or 1 for an indexed component with index=0."
     )]
     fn read_topic_new_indexed_0_with_max_history() {
+        let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 0);
 
-        ReadTopic::new(&sal_info, "scalars", 2);
-    }
-
-    #[test]
-    fn read_topic_new_is_open() {
-        let sal_info = SalInfo::new("Test", 1);
-
-        let read_topic = ReadTopic::new(&sal_info, "scalars", 0);
-
-        assert!(!read_topic.is_open())
-    }
-
-    #[test]
-    fn basic_close() {
-        let sal_info = SalInfo::new("Test", 1);
-
-        let mut read_topic = ReadTopic::new(&sal_info, "scalars", 0);
-
-        read_topic.basic_close();
-
-        assert!(!read_topic.is_open())
+        ReadTopic::new("scalars", &sal_info, &domain, 2);
     }
 
     #[test]
     fn get_no_data() {
+        let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1);
 
-        // Need mutable instance for pushback to work
-        let read_topic = ReadTopic::new(&sal_info, "scalars", 0);
+        let read_topic = ReadTopic::new("scalars", &sal_info, &domain, 0);
 
         let data = read_topic.get();
 
