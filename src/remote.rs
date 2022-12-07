@@ -1,7 +1,16 @@
 use crate::domain;
 use crate::sal_info;
-use crate::topics::{remote_command, remote_event, remote_telemetry};
+use crate::topics::base_topic::BaseTopic;
+use crate::topics::write_topic::WriteTopic;
+use crate::topics::{read_topic::ReadTopic, remote_command::RemoteCommand};
+use crate::utils::command_ack::CommandAck;
+use apache_avro::types::Record;
+use apache_avro::types::Value;
+use apache_avro::Schema;
 use std::collections::HashMap;
+use std::time::Duration;
+
+type Result<T> = std::result::Result<T, T>;
 
 /// Handle operations on a remote SAL object.
 /// This object can execute commands to and receive telemetry and events from
@@ -10,154 +19,139 @@ use std::collections::HashMap;
 /// If a SAL component listens to or commands other SAL components
 /// then it will have one Remote for each such component.
 pub struct Remote<'a> {
-    name: String,
-    index: isize,
-    domain: domain::Domain,
     sal_info: sal_info::SalInfo<'a>,
-    commands: HashMap<String, remote_command::RemoteCommand>,
-    events: HashMap<String, remote_event::RemoteEvent>,
-    telemetry: HashMap<String, remote_telemetry::RemoteTelemetry>,
-    started: bool,
+    commands: HashMap<String, RemoteCommand>,
+    events: HashMap<String, ReadTopic>,
+    telemetry: HashMap<String, ReadTopic>,
 }
 
 impl<'a> Remote<'a> {
     pub fn new(
-        domain: domain::Domain,
-        name: &'a str,
-        index: &isize,
+        domain: &domain::Domain,
+        name: &str,
+        index: isize,
         readonly: bool,
         include: Vec<String>,
         exclude: Vec<String>,
         evt_max_history: usize,
     ) -> Remote<'a> {
-        let mut remote = Remote {
-            name: name.to_owned(),
-            domain: domain,
-            index: index.clone(),
-            sal_info: sal_info::SalInfo::new(name, *index),
-            commands: HashMap::new(),
-            events: HashMap::new(),
-            telemetry: HashMap::new(),
-            started: false,
+        if include.len() > 0 && exclude.len() > 0 {
+            panic!("include_only and exclude can not both have elements.");
+        } else if include.len() > 0 || exclude.len() > 0 {
+            unimplemented!(
+                "Including only a subset of topics or \
+                excluding a subset of topics is not implemented yet."
+            );
+        }
+
+        let sal_info = sal_info::SalInfo::new(&name, index);
+
+        let commands: HashMap<String, RemoteCommand> = if readonly {
+            HashMap::new()
+        } else {
+            sal_info
+                .get_command_names()
+                .into_iter()
+                .map(|command_name| {
+                    (
+                        command_name.to_owned(),
+                        RemoteCommand::new(&command_name, domain, &sal_info),
+                    )
+                })
+                .collect()
         };
 
-        remote.start(readonly, include, exclude, evt_max_history);
-        remote
-    }
+        let events: HashMap<String, ReadTopic> = sal_info
+            .get_event_names()
+            .into_iter()
+            .map(|event_name| {
+                (
+                    event_name.to_owned(),
+                    ReadTopic::new(&event_name, &sal_info, domain, evt_max_history),
+                )
+            })
+            .collect();
 
-    pub fn from_name_index(domain: domain::Domain, name: &'a str, index: &isize) -> Remote<'a> {
-        Remote::new(domain, name, index, true, Vec::new(), Vec::new(), 1)
-    }
+        let telemetry: HashMap<String, ReadTopic> = sal_info
+            .get_telemetry_names()
+            .into_iter()
+            .map(|telemetry_name| {
+                (
+                    telemetry_name.to_owned(),
+                    ReadTopic::new(&telemetry_name, &sal_info, domain, 0),
+                )
+            })
+            .collect();
 
-    /// Start remote.
-    ///
-    /// This method setup the remote command, event and telemetry streams.
-    ///
-    /// # Panic
-    ///
-    /// If remote was already started.
-    fn start(
-        &mut self,
-        readonly: bool,
-        include: Vec<String>,
-        exclude: Vec<String>,
-        evt_max_history: usize,
-    ) {
-        assert!(!self.started);
-
-        if !readonly {
-            self.create_commmands();
-        }
-
-        let events_name = self.get_events_name(&include, &exclude);
-
-        self.create_events(&events_name);
-
-        let telemetry_names = self.get_telemetry_names(&include, &exclude);
-
-        self.create_telemetry(&telemetry_names);
-
-        self.started = true;
-    }
-
-    /// Create commands for remote.
-    ///
-    /// # Panic
-    ///
-    /// If remote was already started.
-    fn create_commmands(&mut self) {
-        assert!(!self.started);
-
-        for cmd_name in self.sal_info.get_command_names() {
-            let command = remote_command::RemoteCommand::new(&self.sal_info, &cmd_name);
-            self.commands.entry(cmd_name.to_string()).or_insert(command);
+        Remote {
+            sal_info: sal_info,
+            commands: commands,
+            events: events,
+            telemetry: telemetry,
         }
     }
 
-    /// Create events for remote.
-    ///
-    /// # Panic
-    ///
-    /// If remote was already started.
-    fn create_events(&mut self, events_name: &Vec<String>) {
-        assert!(!self.started);
-    }
-
-    /// Create telemetry for remote.
-    ///
-    /// # Panic
-    ///
-    /// If remote was already started.
-    fn create_telemetry(&mut self, telemetry_names: &Vec<String>) {
-        assert!(!self.started);
-    }
-
-    /// Construct a list of valid event names.
-    ///
-    /// If both `include_only` and `exclude` are empty, return vector with all
-    /// event names.
-    ///
-    /// If `include_only` is not empty and `exclude` is empty output will
-    /// contain only the names specified in that.
-    ///
-    /// If `include_only` is empty and `exclude` is not empty, output will
-    /// exclude names in the later.
-    ///
-    /// If neither input is empty the function will panic.
-    ///
-    /// # Panic
-    ///
-    /// If both `include_only` and `exclude` are not empty.
-    fn get_events_name(&self, include_only: &Vec<String>, exclude: &Vec<String>) -> Vec<String> {
-        if include_only.len() > 0 && exclude.len() > 0 {
-            panic!("include_only and exclude can not both have elements.");
-        }
-
-        Vec::new()
-    }
-
-    /// Construct a list of valid telemetry names.
-    ///
-    /// This method is similar to `get_events_names` but for telemetry.
-    fn get_telemetry_names(
-        &self,
-        include_only: &Vec<String>,
-        exclude: &Vec<String>,
-    ) -> Vec<String> {
-        if include_only.len() > 0 && exclude.len() > 0 {
-            panic!("include_only and exclude can not both have elements.");
-        }
-        Vec::new()
+    pub fn from_name_index(domain: &domain::Domain, name: &str, index: isize) -> Remote<'a> {
+        Remote::new(domain, name, index, false, Vec::new(), Vec::new(), 1)
     }
 
     /// Get component name.
     pub fn get_name(&self) -> String {
-        String::from(&self.name)
+        self.sal_info.get_name()
+    }
+
+    pub fn get_command_schema(&self, command_name: &str) -> Schema {
+        let sal_name = self.sal_info.get_sal_name(command_name);
+        WriteTopic::get_avro_schema(&self.sal_info, &sal_name)
     }
 
     /// Get component index.
     pub fn get_index(&self) -> isize {
-        self.index.clone()
+        self.sal_info.get_index()
+    }
+
+    pub async fn run_command<'b>(
+        &mut self,
+        command_name: String,
+        parameters: &mut Record<'b>,
+        timeout: Duration,
+        wait_done: bool,
+    ) -> Result<CommandAck> {
+        let command_sal_name = self.sal_info.get_sal_name(&command_name);
+
+        assert!(self.sal_info.is_command(&command_sal_name));
+
+        let mut command = self.commands.get_mut(&command_name).unwrap();
+
+        command
+            .run(parameters, timeout, wait_done, &self.sal_info)
+            .await
+    }
+
+    pub async fn pop_event_front(
+        &mut self,
+        event_name: &str,
+        flush: bool,
+        timeout: Duration,
+    ) -> std::result::Result<Option<Value>, ()> {
+        if let Some(event_reader) = self.events.get_mut(event_name) {
+            Ok(event_reader.pop_front(flush, timeout, &self.sal_info).await)
+        } else {
+            Err(())
+        }
+    }
+
+    pub async fn pop_event_back(
+        &mut self,
+        event_name: &str,
+        flush: bool,
+        timeout: Duration,
+    ) -> std::result::Result<Option<Value>, ()> {
+        if let Some(event_reader) = self.events.get_mut(event_name) {
+            Ok(event_reader.pop_back(flush, timeout, &self.sal_info).await)
+        } else {
+            Err(())
+        }
     }
 }
 
@@ -169,7 +163,7 @@ mod tests {
         let domain = domain::Domain::new();
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(domain, name, &index);
+        let remote = Remote::from_name_index(&domain, name, index);
 
         assert_eq!("Test", remote.get_name())
     }
@@ -179,83 +173,8 @@ mod tests {
         let domain = domain::Domain::new();
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(domain, name, &index);
+        let remote = Remote::from_name_index(&domain, name, index);
 
         assert_eq!(index, remote.get_index());
-    }
-
-    #[test]
-    #[should_panic(expected = "include_only and exclude can not both have elements.")]
-    fn test_get_events_name_panic_if_include_and_exclude() {
-        let domain = domain::Domain::new();
-        let name = "Test";
-        let index = 1;
-        let remote = Remote::from_name_index(domain, name, &index);
-
-        let include_only = vec![String::from("event1")];
-        let exclude = vec![String::from("event2")];
-
-        remote.get_events_name(&include_only, &exclude);
-    }
-
-    #[test]
-    #[should_panic(expected = "include_only and exclude can not both have elements.")]
-    fn test_get_telemetry_names_panic_if_include_and_exclude() {
-        let domain = domain::Domain::new();
-        let name = "Test";
-        let index = 1;
-        let remote = Remote::from_name_index(domain, name, &index);
-
-        let include_only = vec![String::from("telemtry1")];
-        let exclude = vec![String::from("telemetry2")];
-
-        remote.get_events_name(&include_only, &exclude);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_start_when_started() {
-        let domain = domain::Domain::new();
-        let name = "Test";
-        let index = 1;
-        let mut remote = Remote::from_name_index(domain, name, &index);
-
-        remote.start(false, Vec::new(), Vec::new(), 1);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_create_commands_when_started() {
-        let domain = domain::Domain::new();
-        let name = "Test";
-        let index = 1;
-        let mut remote = Remote::from_name_index(domain, name, &index);
-
-        remote.create_commmands();
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_create_events_when_started() {
-        let domain = domain::Domain::new();
-        let name = "Test";
-        let index = 1;
-        let mut remote = Remote::from_name_index(domain, name, &index);
-
-        let events_name = vec![];
-
-        remote.create_events(&events_name);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_create_telemetry_when_started() {
-        let domain = domain::Domain::new();
-        let name = "Test";
-        let index = 1;
-        let mut remote = Remote::from_name_index(domain, name, &index);
-
-        let telemetry_names = vec![];
-        remote.create_telemetry(&telemetry_names);
     }
 }
