@@ -1,4 +1,5 @@
 /// SAL return codes.
+#[derive(Debug, PartialEq, Clone)]
 pub enum SalRetCode {
     Ok = 0,
     Error = -1,
@@ -57,3 +58,44 @@ pub enum SalRetCode {
     SampleLost = 405,
     SubscrMatch = 406,
 }
+
+/// Convert a Value::Long into a SalRetCode enum.
+pub fn get_ackcmd_code(ackcmd: &Value) -> SalRetCode {
+    match ackcmd {
+        Value::Long(300) => SalRetCode::CmdAck,
+        Value::Long(301) => SalRetCode::CmdInprogress,
+        Value::Long(302) => SalRetCode::CmdStalled,
+        Value::Long(303) => SalRetCode::CmdComplete,
+        Value::Long(-300) => SalRetCode::CmdNoperm,
+        Value::Long(-301) => SalRetCode::CmdNoack,
+        Value::Long(-302) => SalRetCode::CmdFailed,
+        Value::Long(-303) => SalRetCode::CmdAborted,
+        Value::Long(-304) => SalRetCode::CmdTimeout,
+        _ => SalRetCode::CmdAck,
+    }
+}
+
+/// Is the ack final?
+pub fn is_ack_final(ack: &SalRetCode) -> bool {
+    [
+        SalRetCode::CmdAborted,
+        SalRetCode::CmdComplete,
+        SalRetCode::CmdFailed,
+        SalRetCode::CmdNoack,
+        SalRetCode::CmdNoperm,
+        SalRetCode::CmdStalled,
+        SalRetCode::CmdTimeout,
+    ]
+    .contains(ack)
+}
+
+/// Is the ack good?
+pub fn is_ack_good(ack: &SalRetCode) -> bool {
+    [
+        SalRetCode::CmdAck,
+        SalRetCode::CmdInprogress,
+        SalRetCode::CmdComplete,
+    ]
+    .contains(ack)
+}
+
