@@ -75,7 +75,8 @@ impl<'a> SalInfo<'a> {
         result: &str,
         timeout: f32,
     ) -> Record {
-        let mut record = Record::new(&self.topic_schema.get("ackcmd").unwrap()).unwrap();
+        let sal_name = self.get_sal_name("ackcmd");
+        let mut record = Record::new(&self.topic_schema.get(&sal_name).unwrap()).unwrap();
         record.put("private_seqNum", Value::Int(private_seqnum));
         record.put("ack", Value::Int(ack as i32));
         record.put("error", Value::Int(error));
