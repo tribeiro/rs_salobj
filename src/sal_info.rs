@@ -162,7 +162,7 @@ impl<'a> SalInfo<'a> {
     ///
     /// This method does not test if the topic is a valid topic from the
     /// component.
-    fn is_command(&self, sal_name: &str) -> bool {
+    pub fn is_command(&self, sal_name: &str) -> bool {
         sal_name.contains("_command_")
     }
 
@@ -170,7 +170,7 @@ impl<'a> SalInfo<'a> {
     ///
     /// This method does not test if the topic is a valid topic from the
     /// component.
-    fn is_event(&self, sal_name: &str) -> bool {
+    pub fn is_event(&self, sal_name: &str) -> bool {
         sal_name.contains("_logevent_")
     }
 
