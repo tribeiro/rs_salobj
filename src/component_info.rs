@@ -72,7 +72,7 @@ impl ComponentInfo {
         self.commands
             .keys()
             .into_iter()
-            .map(|topic| topic.to_owned())
+            .map(|topic| topic.to_owned().replace(&format!("{}_", self.name), ""))
             .collect()
     }
 
@@ -86,7 +86,7 @@ impl ComponentInfo {
         self.events
             .keys()
             .into_iter()
-            .map(|topic| topic.to_owned())
+            .map(|topic| topic.to_owned().replace(&format!("{}_", self.name), ""))
             .collect()
     }
 
@@ -100,7 +100,7 @@ impl ComponentInfo {
         self.telemetry
             .keys()
             .into_iter()
-            .map(|topic| topic.to_owned())
+            .map(|topic| topic.to_owned().replace(&format!("{}_", self.name), ""))
             .collect()
     }
 
@@ -116,16 +116,19 @@ impl ComponentInfo {
 
     /// Make avro schema for all topics in the component.
     pub fn make_avro_schema(&self) -> HashMap<String, AvroSchema> {
-        HashMap::from([("ackcmd".to_owned(), self.ack_cmd.make_avro_schema())])
-            .into_iter()
-            .chain(ComponentInfo::make_avro_schema_for_topic_set(
-                &self.commands,
-            ))
-            .chain(ComponentInfo::make_avro_schema_for_topic_set(&self.events))
-            .chain(ComponentInfo::make_avro_schema_for_topic_set(
-                &self.telemetry,
-            ))
-            .collect()
+        HashMap::from([(
+            format!("{}_ackcmd", self.name),
+            self.ack_cmd.make_avro_schema(),
+        )])
+        .into_iter()
+        .chain(ComponentInfo::make_avro_schema_for_topic_set(
+            &self.commands,
+        ))
+        .chain(ComponentInfo::make_avro_schema_for_topic_set(&self.events))
+        .chain(ComponentInfo::make_avro_schema_for_topic_set(
+            &self.telemetry,
+        ))
+        .collect()
     }
 
     /// Make avro schema for a set of topics (a hashmap of topic_name, topic_info).
