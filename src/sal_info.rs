@@ -245,7 +245,7 @@ mod tests {
 
         let command_names = sal_info.get_command_names();
 
-        assert!(command_names.contains(&"Test_command_setScalars".to_owned()))
+        assert!(command_names.contains(&"command_setScalars".to_owned()))
     }
 
     #[test]
@@ -254,7 +254,7 @@ mod tests {
 
         let event_names = sal_info.get_event_names();
 
-        assert!(event_names.contains(&"Test_logevent_scalars".to_owned()))
+        assert!(event_names.contains(&"logevent_scalars".to_owned()))
     }
 
     #[test]
@@ -263,7 +263,7 @@ mod tests {
 
         let telemetry_names = sal_info.get_telemetry_names();
 
-        assert!(telemetry_names.contains(&"Test_scalars".to_owned()))
+        assert!(telemetry_names.contains(&"scalars".to_owned()))
     }
 
     #[test]
