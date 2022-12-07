@@ -3,23 +3,6 @@ use apache_avro::types::Record;
 
 /// A trait that represents base topic interface.
 pub trait BaseTopic {
-    /// Return reference to TopicInfo.
-    ///
-    /// Any implementation of BaseTopic must contain an instance of TopicInfo.
-    fn get_topic_info(&self) -> &TopicInfo;
-
-    /// Return name of the topic with the standard SAL format.
-    ///
-    /// Events have the format, `logevent_<event_name>`, telemetry are simply
-    /// `<telemetry_name>` and commands, `command_<command_name>`.
-    fn get_sal_name(&self) -> String;
-
-    /// Return topic publish name.
-    ///
-    /// This follows the format:
-    /// "lsst.<topic_subname>.<component_name>.<topic_name>".
-    fn get_topic_publish_name(&self) -> String;
-
     /// String with the record type used in kafka.
     fn get_record_type(&self) -> String {
         "value".to_owned()

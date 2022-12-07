@@ -33,7 +33,7 @@ pub struct WriteTopic<'a, 'b> {
     producer: Option<producer::Producer>,
 }
 
-base_topic!(WriteTopic);
+impl BaseTopic for WriteTopic {}
 
 impl<'a, 'b> WriteTopic<'a, 'b> {
     pub fn new(domain: Domain, sal_info: &'a SalInfo<'b>, topic_name: &str) -> WriteTopic<'a, 'b> {

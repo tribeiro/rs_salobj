@@ -1,8 +1,4 @@
-use crate::{
-    base_topic,
-    sal_info::SalInfo,
-    topics::{base_topic::BaseTopic, topic_info::TopicInfo},
-};
+use crate::{domain::Domain, sal_info::SalInfo, topics::base_topic::BaseTopic};
 use apache_avro::{
     types::{Record, Value},
     Schema,
@@ -43,7 +39,7 @@ pub struct ReadTopic<'a, 'b> {
     schema: Schema,
 }
 
-base_topic!(ReadTopic);
+impl BaseTopic for ReadTopic {}
 
 impl<'a, 'b> ReadTopic<'a, 'b> {
     pub fn new(
