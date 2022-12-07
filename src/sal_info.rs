@@ -200,9 +200,15 @@ impl<'a> SalInfo<'a> {
     ///
     /// If topic name is not part of the component.
     pub fn assert_is_valid_topic(&self, topic_name: &str) {
-        assert!(self
-            .topic_schema
-            .contains_key(&self.get_sal_name(topic_name)))
+        let topic_sal_name = self.get_sal_name(topic_name);
+
+        assert!(
+            self.topic_schema.contains_key(&topic_sal_name) || topic_name == "ackcmd",
+            "No topic {} in component {}:: Valid topics are {:?}",
+            topic_sal_name,
+            self.get_name(),
+            self.topic_schema.keys()
+        )
     }
 
     pub async fn encode(
