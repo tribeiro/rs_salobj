@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 apache-avro = "0.14.0"
 chrono = "0.4"
+clap = { version = "3.0", features = ["derive"] }
 kafka = "0.9"
 num-traits = "0.2"
 schema_registry_converter = { version = "3.0.0", features = ["avro"] }
