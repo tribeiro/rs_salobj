@@ -1,8 +1,5 @@
 use apache_avro::types::Value;
-use kafka::{
-    client::KafkaClient,
-    consumer::{Consumer, FetchOffset, GroupOffsetStorage},
-};
+use kafka::client::KafkaClient;
 use std::collections::HashMap;
 
 use salobj::{
@@ -30,7 +27,7 @@ async fn main() {
     let sal_info = SalInfo::new(component, 1);
     let max_history: usize = 10;
 
-    let mut topic_reader = ReadTopic::new(&sal_info, topic, max_history);
+    let mut topic_reader = ReadTopic::new(topic, &sal_info, &domain, max_history);
 
     println!(
         "Reading topic: {} group: {}",
@@ -38,24 +35,16 @@ async fn main() {
         topic_reader.get_record_type()
     );
 
-    let consumer = Consumer::from_hosts(vec!["localhost:9092".to_owned()])
-        .with_topic(topic_reader.get_topic_publish_name())
-        .with_fallback_offset(FetchOffset::Latest)
-        .with_group(format!("{}", domain.get_origin()))
-        .with_offset_storage(GroupOffsetStorage::Kafka)
-        .create()
-        .unwrap();
-
-    topic_reader.set_consumer(consumer);
-
     println!("Reader heartbeats...");
     for i in 0..10 {
         println!("Iteration {i}...");
         println!("==> reading data queue!");
         loop {
-            if let Some(new_data) = topic_reader.pop_next(false, Duration::from_secs(1)).await {
+            if let Some(Value::Record(new_data)) = topic_reader
+                .pop_back(false, Duration::from_secs(1), &sal_info)
+                .await
+            {
                 let data_dict: HashMap<String, Value> = new_data
-                    .fields
                     .into_iter()
                     .map(|(field, value)| (field, value))
                     .collect();
