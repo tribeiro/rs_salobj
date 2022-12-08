@@ -33,7 +33,7 @@ pub mod sal_enums;
 pub mod sal_info;
 mod sal_subsystem;
 pub mod topics;
-mod utils;
+pub mod utils;
 
 #[cfg(test)]
 mod tests {
