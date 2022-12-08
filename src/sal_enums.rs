@@ -1,3 +1,8 @@
+use crate::generics::summary_state::SummaryState;
+use apache_avro::types::Value;
+use num_traits::{cast::cast, PrimInt};
+use std::{fmt, str::FromStr, string::ParseError};
+
 /// SAL return codes.
 #[derive(Debug, PartialEq, Clone)]
 pub enum SalRetCode {
@@ -104,6 +109,27 @@ pub enum State {
     Standby = 5,
 }
 
+impl State {
+    /// Generate a `State` enumeration from a `SummaryState` struct.
+    pub fn from_summary_state(summary_state: &SummaryState) -> State {
+        State::from(summary_state.get_summary_state_value())
+    }
+
+    /// Generate a `State` enumeration from a primitive integer.
+    pub fn from<T: PrimInt>(value: T) -> State {
+        let value: u32 = cast(value).unwrap();
+
+        match value {
+            1 => State::Disabled,
+            2 => State::Enabled,
+            3 => State::Fault,
+            4 => State::Offline,
+            5 => State::Standby,
+            _ => State::Invalid,
+        }
+    }
+}
+
 impl FromStr for State {
     type Err = ParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -129,3 +155,78 @@ impl fmt::Display for State {
     }
 }
 
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_get_ackcmd_code_cmd_default() {
+        assert_eq!(get_ackcmd_code(&Value::Float(10.0)), SalRetCode::CmdAck)
+    }
+
+    #[test]
+    fn test_get_ackcmd_code_cmd_ack() {
+        assert_eq!(get_ackcmd_code(&Value::Long(300)), SalRetCode::CmdAck)
+    }
+
+    #[test]
+    fn test_get_ackcmd_code_cmd_in_progress() {
+        assert_eq!(
+            get_ackcmd_code(&Value::Long(301)),
+            SalRetCode::CmdInprogress
+        )
+    }
+
+    #[test]
+    fn test_is_ack_final() {
+        assert!(is_ack_final(&SalRetCode::CmdAborted))
+    }
+
+    #[test]
+    fn test_is_ack_good() {
+        assert!(is_ack_final(&SalRetCode::CmdComplete))
+    }
+
+    #[test]
+    fn test_state_from_number_invalid() {
+        let invalid = State::from(10);
+
+        assert_eq!(invalid, State::Invalid)
+    }
+
+    #[test]
+    fn test_state_from_number_disabled() {
+        let state = State::from(1);
+
+        assert_eq!(state, State::Disabled)
+    }
+
+    #[test]
+    fn test_state_from_number_enabled() {
+        let state = State::from(2);
+
+        assert_eq!(state, State::Enabled)
+    }
+
+    #[test]
+    fn test_state_from_number_fault() {
+        let state = State::from(3);
+
+        assert_eq!(state, State::Fault)
+    }
+
+    #[test]
+    fn test_state_from_number_offline() {
+        let state = State::from(4);
+
+        assert_eq!(state, State::Offline)
+    }
+
+    #[test]
+    fn test_state_from_number_standby() {
+        let state = State::from(5);
+
+        assert_eq!(state, State::Standby)
+    }
+}

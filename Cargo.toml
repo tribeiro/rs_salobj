@@ -9,6 +9,7 @@ edition = "2021"
 apache-avro = "0.14.0"
 chrono = "0.4"
 kafka = "0.9"
+num-traits = "0.2"
 schema_registry_converter = { version = "3.0.0", features = ["avro"] }
 serde = "1.0"
 serde_derive = "1.0"
