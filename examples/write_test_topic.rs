@@ -8,7 +8,6 @@ use salobj::{
     sal_info::SalInfo,
     topics::{base_topic::BaseTopic, write_topic::WriteTopic},
 };
-use std::time::Duration;
 use tokio::time;
 
 #[tokio::main]
@@ -27,26 +26,21 @@ async fn main() {
 
     let sal_info = SalInfo::new(component, 1);
 
-    let mut topic_writer = WriteTopic::new(domain, &sal_info, topic);
+    let mut topic_writer = WriteTopic::new(topic, &sal_info, &domain);
 
-    let producer = Producer::from_hosts(vec!["localhost:9092".to_owned()])
-        .with_ack_timeout(Duration::from_secs(1))
-        .with_required_acks(RequiredAcks::One)
-        .create()
-        .unwrap();
-
-    topic_writer.set_producer(producer);
-
-    let test_scalars_schema = WriteTopic::get_avro_schema(&sal_info, &topic_writer.get_sal_name());
+    let sal_name = sal_info.get_sal_name(&topic);
+    let schema = sal_info.get_topic_schema(&sal_name).unwrap().clone();
 
     println!("Writing heartbeat...");
     for i in 0..10 {
         println!("Sending hearbeat {i}...");
-        let mut test_scalars_record = WriteTopic::make_data_type(&test_scalars_schema);
+        let mut test_scalars_record = WriteTopic::make_data_type(&schema);
 
         test_scalars_record.put("heartbeat", Value::Boolean(false));
 
-        topic_writer.set_write(test_scalars_record).await;
+        topic_writer
+            .write(&mut test_scalars_record, &sal_info)
+            .await;
         time::sleep(time::Duration::from_secs(1)).await;
     }
     println!("Done...");

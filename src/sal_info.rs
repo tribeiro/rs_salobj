@@ -18,19 +18,19 @@ use std::collections::HashMap;
 use std::env;
 
 ///Information for one SAL component and index.
-pub struct SalInfo<'coders> {
+pub struct SalInfo<'a> {
     name: String,
     index: isize,
     topic_subname: String,
     component_info: ComponentInfo,
     topic_schema: HashMap<String, Schema>,
-    encoder: AvroEncoder<'coders>,
-    decoder: AvroDecoder<'coders>,
+    encoder: AvroEncoder<'a>,
+    decoder: AvroDecoder<'a>,
 }
 
-impl<'encoder> SalInfo<'encoder> {
+impl<'a> SalInfo<'a> {
     /// Create a new instance of `SalInfo`.
-    pub fn new(name: &str, index: isize) -> SalInfo {
+    pub fn new(name: &str, index: isize) -> SalInfo<'a> {
         let topic_subname = match env::var("LSST_TOPIC_SUBNAME") {
             Ok(val) => val,
             Err(_) => panic!("You must define environment variable LSST_TOPIC_SUBNAME"),
@@ -75,7 +75,8 @@ impl<'encoder> SalInfo<'encoder> {
         result: &str,
         timeout: f32,
     ) -> Record {
-        let mut record = Record::new(&self.topic_schema.get("ackcmd").unwrap()).unwrap();
+        let sal_name = self.get_sal_name("ackcmd");
+        let mut record = Record::new(&self.topic_schema.get(&sal_name).unwrap()).unwrap();
         record.put("private_seqNum", Value::Int(private_seqnum));
         record.put("ack", Value::Int(ack as i32));
         record.put("error", Value::Int(error));
@@ -161,7 +162,7 @@ impl<'encoder> SalInfo<'encoder> {
     ///
     /// This method does not test if the topic is a valid topic from the
     /// component.
-    fn is_command(&self, sal_name: &str) -> bool {
+    pub fn is_command(&self, sal_name: &str) -> bool {
         sal_name.contains("_command_")
     }
 
@@ -169,7 +170,7 @@ impl<'encoder> SalInfo<'encoder> {
     ///
     /// This method does not test if the topic is a valid topic from the
     /// component.
-    fn is_event(&self, sal_name: &str) -> bool {
+    pub fn is_event(&self, sal_name: &str) -> bool {
         sal_name.contains("_logevent_")
     }
 
@@ -199,9 +200,15 @@ impl<'encoder> SalInfo<'encoder> {
     ///
     /// If topic name is not part of the component.
     pub fn assert_is_valid_topic(&self, topic_name: &str) {
-        assert!(self
-            .topic_schema
-            .contains_key(&self.get_sal_name(topic_name)))
+        let topic_sal_name = self.get_sal_name(topic_name);
+
+        assert!(
+            self.topic_schema.contains_key(&topic_sal_name) || topic_name == "ackcmd",
+            "No topic {} in component {}:: Valid topics are {:?}",
+            topic_sal_name,
+            self.get_name(),
+            self.topic_schema.keys()
+        )
     }
 
     pub async fn encode(
@@ -216,12 +223,12 @@ impl<'encoder> SalInfo<'encoder> {
         self.decoder.decode(bytes).await
     }
 
-    pub fn make_encoder<'a>() -> AvroEncoder<'a> {
+    pub fn make_encoder<'b>() -> AvroEncoder<'b> {
         let sr_settings = SrSettings::new("http://localhost:8081".to_owned());
         AvroEncoder::new(sr_settings)
     }
 
-    pub fn make_decoder<'a>() -> AvroDecoder<'a> {
+    pub fn make_decoder<'b>() -> AvroDecoder<'b> {
         let sr_settings = SrSettings::new("http://localhost:8081".to_owned());
         AvroDecoder::new(sr_settings)
     }
@@ -238,7 +245,7 @@ mod tests {
 
         let command_names = sal_info.get_command_names();
 
-        assert!(command_names.contains(&"Test_command_setScalars".to_owned()))
+        assert!(command_names.contains(&"command_setScalars".to_owned()))
     }
 
     #[test]
@@ -247,7 +254,7 @@ mod tests {
 
         let event_names = sal_info.get_event_names();
 
-        assert!(event_names.contains(&"Test_logevent_scalars".to_owned()))
+        assert!(event_names.contains(&"logevent_scalars".to_owned()))
     }
 
     #[test]
@@ -256,7 +263,7 @@ mod tests {
 
         let telemetry_names = sal_info.get_telemetry_names();
 
-        assert!(telemetry_names.contains(&"Test_scalars".to_owned()))
+        assert!(telemetry_names.contains(&"scalars".to_owned()))
     }
 
     #[test]

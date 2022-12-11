@@ -27,12 +27,13 @@ extern crate serde_derive;
 mod component_info;
 pub mod domain;
 mod error;
-mod remote;
-mod sal_enums;
+pub mod generics;
+pub mod remote;
+pub mod sal_enums;
 pub mod sal_info;
 mod sal_subsystem;
 pub mod topics;
-mod utils;
+pub mod utils;
 
 #[cfg(test)]
 mod tests {
