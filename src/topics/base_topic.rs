@@ -1,4 +1,4 @@
-use crate::{sal_info::SalInfo, topics::topic_info::TopicInfo};
+use crate::sal_info::SalInfo;
 use apache_avro::types::Record;
 
 /// A trait that represents base topic interface.

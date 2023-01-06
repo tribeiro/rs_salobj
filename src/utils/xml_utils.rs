@@ -51,6 +51,11 @@ pub fn unwrap_xml_interface(xml_interface: Result<String, NoInterfaceFileError>)
     }
 }
 
+/// Returns default sal index.
+pub fn get_default_sal_index() -> i64 {
+    0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

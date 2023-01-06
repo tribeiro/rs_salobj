@@ -1,4 +1,6 @@
-use crate::sal_enums::State;
+use crate::{
+    base_topic, sal_enums::State, topics::topic::Topic, utils::xml_utils::get_default_sal_index,
+};
 
 #[derive(Debug, Deserialize)]
 pub struct SummaryState {
@@ -14,6 +16,8 @@ pub struct SummaryState {
     sal_index: i64,
 }
 
+base_topic!(SummaryState);
+
 impl SummaryState {
     pub fn get_summary_state_value(&self) -> i32 {
         self.summary_state
@@ -22,26 +26,6 @@ impl SummaryState {
     pub fn get_summary_state(&self) -> State {
         State::from_summary_state(self)
     }
-
-    pub fn get_private_origin(&self) -> i64 {
-        self.private_origin
-    }
-    pub fn get_private_identity(&self) -> String {
-        self.private_identity.to_owned()
-    }
-    pub fn get_private_seq_num(&self) -> i64 {
-        self.private_seq_num
-    }
-    pub fn get_private_rcv_stamp(&self) -> f64 {
-        self.private_rcv_stamp
-    }
-    pub fn get_sal_index(&self) -> i64 {
-        self.sal_index
-    }
-}
-
-fn get_default_sal_index() -> i64 {
-    0
 }
 
 #[cfg(test)]
