@@ -107,7 +107,12 @@ impl SALSubsystemInfo {
             .filter_map(|(name, sal_topic)| {
                 Some((
                     name,
-                    TopicInfo::from_sal_topic(&sal_topic, topic_subname, self.indexed),
+                    TopicInfo::from_generic_sal_topic(
+                        &sal_topic,
+                        topic_subname,
+                        self.indexed,
+                        &self.name,
+                    ),
                 ))
             })
             .collect()
@@ -144,7 +149,12 @@ impl SALSubsystemInfo {
             .filter_map(|(name, sal_topic)| {
                 Some((
                     name,
-                    TopicInfo::from_sal_topic(&sal_topic, topic_subname, self.indexed),
+                    TopicInfo::from_generic_sal_topic(
+                        &sal_topic,
+                        topic_subname,
+                        self.indexed,
+                        &self.name,
+                    ),
                 ))
             })
             .collect()
