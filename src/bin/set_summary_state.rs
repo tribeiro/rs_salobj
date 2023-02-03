@@ -60,9 +60,9 @@ async fn main() {
         cli.get_configuration_override()
     );
 
-    let domain = domain::Domain::new();
+    let mut domain = domain::Domain::new();
     let mut remote = Remote::from_name_index(
-        &domain,
+        &mut domain,
         &cli.get_component_name(),
         cli.get_component_index(),
     );
