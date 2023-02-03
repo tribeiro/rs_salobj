@@ -214,10 +214,20 @@ mod tests {
         ReadTopic::new("scalars", &sal_info, &domain, 2);
     }
 
-    #[test]
-    fn get_no_data() {
-        let domain = Domain::new();
+    #[tokio::test]
+    async fn get_no_data() {
+        let mut domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1);
+
+        let topics: Vec<String> = sal_info
+            .get_telemetry_names()
+            .into_iter()
+            .map(|topic_name| sal_info.make_topic_name(&topic_name).to_owned())
+            .collect();
+
+        println!("Loading metadata for topics: {topics:?}");
+        domain.register_topics(&topics).unwrap();
+        sal_info.register_schema().await;
 
         let read_topic = ReadTopic::new("scalars", &sal_info, &domain, 0);
 
