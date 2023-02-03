@@ -8,11 +8,11 @@ use apache_avro::{
 use schema_registry_converter::{
     async_impl::{
         avro::{AvroDecoder, AvroEncoder},
-        schema_registry::SrSettings,
+        schema_registry::{post_schema, SrSettings},
     },
     avro_common::DecodeResult,
     error::SRCError,
-    schema_registry_common::SubjectNameStrategy,
+    schema_registry_common::{RegisteredSchema, SchemaType, SubjectNameStrategy, SuppliedSchema},
 };
 use std::collections::HashMap;
 use std::env;
@@ -122,6 +122,15 @@ impl<'a> SalInfo<'a> {
         format!("{}_{}", self.get_name(), topic_name)
     }
 
+    /// Make topic subject name.
+    pub fn make_subject_name(&self, topic_name: &str) -> String {
+        format!(
+            "{}-value",
+            self.make_topic_name(topic_name)
+                .replace(&format!(".{}_", self.get_name()), ".")
+        )
+    }
+
     /// Get name of all commands topics.
     pub fn get_command_names(&self) -> Vec<String> {
         self.component_info.get_command_names()
@@ -135,6 +144,25 @@ impl<'a> SalInfo<'a> {
     /// Get names of all telemetry topics.
     pub fn get_telemetry_names(&self) -> Vec<String> {
         self.component_info.get_telemetry_names()
+    }
+
+    /// Get names of all the topics.
+    pub fn get_topics_name(&self) -> Vec<String> {
+        self.get_telemetry_names()
+            .into_iter()
+            .map(|topic_name| self.make_topic_name(&topic_name).to_owned())
+            .chain(
+                self.get_event_names()
+                    .into_iter()
+                    .map(|topic_name| self.make_topic_name(&topic_name).to_owned()),
+            )
+            .chain(
+                self.get_command_names()
+                    .into_iter()
+                    .map(|topic_name| self.make_topic_name(&topic_name).to_owned()),
+            )
+            .chain(vec![self.make_topic_name(&"ackcmd").to_owned()])
+            .collect()
     }
 
     /// Get topic info for a particular topic.
@@ -223,13 +251,42 @@ impl<'a> SalInfo<'a> {
         self.decoder.decode(bytes).await
     }
 
+    pub async fn register_schema(&self) -> HashMap<String, Result<RegisteredSchema, SRCError>> {
+        let sr_settings = SalInfo::make_sr_settings();
+        let mut result: HashMap<String, Result<RegisteredSchema, SRCError>> = HashMap::new();
+
+        let topic_schema = self.component_info.make_avro_schema();
+
+        for (topic, avro_schema) in topic_schema.iter() {
+            let schema = serde_json::to_string(&avro_schema).unwrap();
+            let supplied_schema = SuppliedSchema {
+                name: Some(self.make_topic_name(&topic)),
+                schema_type: SchemaType::Avro,
+                schema: schema,
+                references: vec![],
+            };
+            let decode = post_schema(
+                &sr_settings,
+                self.make_subject_name(&topic),
+                supplied_schema,
+            )
+            .await;
+            result.entry(topic.to_owned()).or_insert(decode);
+        }
+        result
+    }
+
+    pub fn make_sr_settings() -> SrSettings {
+        SrSettings::new("http://localhost:8081".to_owned())
+    }
+
     pub fn make_encoder<'b>() -> AvroEncoder<'b> {
-        let sr_settings = SrSettings::new("http://localhost:8081".to_owned());
+        let sr_settings = SalInfo::make_sr_settings();
         AvroEncoder::new(sr_settings)
     }
 
     pub fn make_decoder<'b>() -> AvroDecoder<'b> {
-        let sr_settings = SrSettings::new("http://localhost:8081".to_owned());
+        let sr_settings = SalInfo::make_sr_settings();
         AvroDecoder::new(sr_settings)
     }
 }

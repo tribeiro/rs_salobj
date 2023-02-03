@@ -1,13 +1,13 @@
 use crate::topics::field_info;
 use crate::topics::sal_objects::SalTopic;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// Information about one topic.
 pub struct TopicInfo {
     component_name: String,
     topic_subname: String,
     topic_name: String,
-    fields: HashMap<String, field_info::FieldInfo>,
+    fields: BTreeMap<String, field_info::FieldInfo>,
     description: String,
     partitions: usize,
 }
@@ -30,7 +30,7 @@ impl TopicInfo {
             component_name: String::new(),
             topic_subname: String::new(),
             topic_name: String::new(),
-            fields: HashMap::new(),
+            fields: BTreeMap::new(),
             description: String::new(),
             partitions: 0,
         }
@@ -41,7 +41,7 @@ impl TopicInfo {
             component_name: String::from(component_name),
             topic_subname: String::from(topic_subname),
             topic_name: String::from("ackcmd"),
-            fields: TopicInfo::get_ackcmd_fields(indexed),
+            fields: TopicInfo::get_ackcmd_fields(indexed).into_iter().collect(),
             description: String::from("Command acknowledgement"),
             partitions: 1,
         }
@@ -55,6 +55,27 @@ impl TopicInfo {
 
         TopicInfo {
             component_name: sal_topic.get_subsystem(),
+            topic_subname: String::from(topic_subname),
+            topic_name: sal_topic.get_topic_name(),
+            fields: private_fields.into_iter().chain(fields).collect(),
+            description: sal_topic.get_description(),
+            partitions: 1,
+        }
+    }
+
+    /// Create topic info from `SalTopic`.
+    pub fn from_generic_sal_topic(
+        sal_topic: &SalTopic,
+        topic_subname: &str,
+        indexed: bool,
+        component_name: &str,
+    ) -> TopicInfo {
+        let private_fields = TopicInfo::get_private_fields(indexed);
+
+        let fields: HashMap<String, field_info::FieldInfo> = sal_topic.get_field_info();
+
+        TopicInfo {
+            component_name: component_name.to_owned(),
             topic_subname: String::from(topic_subname),
             topic_name: sal_topic.get_topic_name(),
             fields: private_fields.into_iter().chain(fields).collect(),
@@ -77,13 +98,12 @@ impl TopicInfo {
 
     /// Make avro schema for the topic.
     pub fn make_avro_schema(&self) -> AvroSchema {
-        let topic_subname = &self.topic_subname;
         let component_name = &self.component_name;
 
         AvroSchema {
             avro_message_type: "record".to_owned(),
             name: self.topic_name.to_owned(),
-            namespace: format!("lsst.sal.{topic_subname}.{component_name}"),
+            namespace: format!("lsst.sal.kafka-{component_name}"),
             fields: self
                 .fields
                 .iter()
