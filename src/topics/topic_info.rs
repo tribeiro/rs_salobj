@@ -77,13 +77,12 @@ impl TopicInfo {
 
     /// Make avro schema for the topic.
     pub fn make_avro_schema(&self) -> AvroSchema {
-        let topic_subname = &self.topic_subname;
         let component_name = &self.component_name;
 
         AvroSchema {
             avro_message_type: "record".to_owned(),
             name: self.topic_name.to_owned(),
-            namespace: format!("lsst.sal.{topic_subname}.{component_name}"),
+            namespace: format!("lsst.sal.kafka-{component_name}"),
             fields: self
                 .fields
                 .iter()
