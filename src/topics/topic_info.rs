@@ -63,6 +63,27 @@ impl TopicInfo {
         }
     }
 
+    /// Create topic info from `SalTopic`.
+    pub fn from_generic_sal_topic(
+        sal_topic: &SalTopic,
+        topic_subname: &str,
+        indexed: bool,
+        component_name: &str,
+    ) -> TopicInfo {
+        let private_fields = TopicInfo::get_private_fields(indexed);
+
+        let fields: HashMap<String, field_info::FieldInfo> = sal_topic.get_field_info();
+
+        TopicInfo {
+            component_name: component_name.to_owned(),
+            topic_subname: String::from(topic_subname),
+            topic_name: sal_topic.get_topic_name(),
+            fields: private_fields.into_iter().chain(fields).collect(),
+            description: sal_topic.get_description(),
+            partitions: 1,
+        }
+    }
+
     pub fn get_topic_name(&self) -> &str {
         &self.topic_name
     }
