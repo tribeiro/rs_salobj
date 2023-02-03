@@ -27,7 +27,7 @@ pub struct Remote<'a> {
 
 impl<'a> Remote<'a> {
     pub fn new(
-        domain: &domain::Domain,
+        domain: &mut domain::Domain,
         name: &str,
         index: isize,
         readonly: bool,
@@ -45,6 +45,8 @@ impl<'a> Remote<'a> {
         }
 
         let sal_info = sal_info::SalInfo::new(&name, index);
+
+        domain.register_topics(&sal_info.get_topics_name()).unwrap();
 
         let commands: HashMap<String, RemoteCommand> = if readonly {
             HashMap::new()
@@ -91,7 +93,7 @@ impl<'a> Remote<'a> {
         }
     }
 
-    pub fn from_name_index(domain: &domain::Domain, name: &str, index: isize) -> Remote<'a> {
+    pub fn from_name_index(domain: &mut domain::Domain, name: &str, index: isize) -> Remote<'a> {
         Remote::new(domain, name, index, false, Vec::new(), Vec::new(), 1)
     }
 
@@ -160,20 +162,20 @@ mod tests {
     use super::*;
     #[test]
     fn test_get_name() {
-        let domain = domain::Domain::new();
+        let mut domain = domain::Domain::new();
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(&domain, name, index);
+        let remote = Remote::from_name_index(&mut domain, name, index);
 
         assert_eq!("Test", remote.get_name())
     }
 
     #[test]
     fn test_get_index() {
-        let domain = domain::Domain::new();
+        let mut domain = domain::Domain::new();
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(&domain, name, index);
+        let remote = Remote::from_name_index(&mut domain, name, index);
 
         assert_eq!(index, remote.get_index());
     }
