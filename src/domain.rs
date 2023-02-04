@@ -12,6 +12,12 @@ pub struct Domain {
     kafka_client: KafkaClient,
 }
 
+impl Default for Domain {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Domain {
     /// Create a new instance of Domain,
     pub fn new() -> Domain {
@@ -46,13 +52,13 @@ impl Domain {
             let result = self.kafka_client.load_metadata(topics);
             match result {
                 Ok(_) => {
-                    let partitions_unloaded: Vec<bool> = topics
+                    if topics
                         .iter()
                         .filter_map(|topic| {
                             if self
                                 .kafka_client
                                 .topics()
-                                .partitions(topic.as_ref().into())
+                                .partitions(topic.as_ref())
                                 .map(|p| p.len())
                                 .unwrap_or(0)
                                 > 0
@@ -62,8 +68,9 @@ impl Domain {
                                 Some(true)
                             }
                         })
-                        .collect();
-                    if partitions_unloaded.is_empty() {
+                        .next()
+                        .is_none()
+                    {
                         return Ok(());
                     }
                 }

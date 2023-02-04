@@ -23,11 +23,11 @@ pub fn read_xml_interface(interface: &str) -> Result<String, NoInterfaceFileErro
 
             let sal_subsystems_path = interfaces_dir.join(interface);
             if sal_subsystems_path.exists() {
-                return Ok(fs::read_to_string(sal_subsystems_path).unwrap());
+                Ok(fs::read_to_string(sal_subsystems_path).unwrap())
             } else {
-                return Err(NoInterfaceFileError::new(&format!(
+                Err(NoInterfaceFileError::new(&format!(
                     "No interface file for {interface}"
-                )));
+                )))
             }
         }
         Err(_) => panic!("Required environment variable 'TS_XML_DIR' not set."),
@@ -45,7 +45,7 @@ pub fn unwrap_xml_interface(xml_interface: Result<String, NoInterfaceFileError>)
             .lines()
             .filter(|line| !line.contains("?xml"))
             .filter(|line| !line.contains("Enumeration"))
-            .map(|line| format!("{}\n", line.to_string()))
+            .map(|line| format!("{}\n", line))
             .collect(),
         Err(_) => String::new(),
     }

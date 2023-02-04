@@ -35,16 +35,16 @@ impl<'a> Remote<'a> {
         exclude: Vec<String>,
         evt_max_history: usize,
     ) -> Remote<'a> {
-        if include.len() > 0 && exclude.len() > 0 {
+        if !include.is_empty() && !exclude.is_empty() {
             panic!("include_only and exclude can not both have elements.");
-        } else if include.len() > 0 || exclude.len() > 0 {
+        } else if !include.is_empty() || !exclude.is_empty() {
             unimplemented!(
                 "Including only a subset of topics or \
                 excluding a subset of topics is not implemented yet."
             );
         }
 
-        let sal_info = sal_info::SalInfo::new(&name, index);
+        let sal_info = sal_info::SalInfo::new(name, index);
 
         domain.register_topics(&sal_info.get_topics_name()).unwrap();
 
@@ -86,10 +86,10 @@ impl<'a> Remote<'a> {
             .collect();
 
         Remote {
-            sal_info: sal_info,
-            commands: commands,
-            events: events,
-            telemetry: telemetry,
+            sal_info,
+            commands,
+            events,
+            telemetry,
         }
     }
 
@@ -123,7 +123,7 @@ impl<'a> Remote<'a> {
 
         assert!(self.sal_info.is_command(&command_sal_name));
 
-        let mut command = self.commands.get_mut(&command_name).unwrap();
+        let command = self.commands.get_mut(&command_name).unwrap();
 
         command
             .run(parameters, timeout, wait_done, &self.sal_info)
@@ -151,6 +151,36 @@ impl<'a> Remote<'a> {
     ) -> std::result::Result<Option<Value>, ()> {
         if let Some(event_reader) = self.events.get_mut(event_name) {
             Ok(event_reader.pop_back(flush, timeout, &self.sal_info).await)
+        } else {
+            Err(())
+        }
+    }
+
+    pub async fn pop_telemetry_front(
+        &mut self,
+        telemetry_name: &str,
+        flush: bool,
+        timeout: Duration,
+    ) -> std::result::Result<Option<Value>, ()> {
+        if let Some(telemetry_reader) = self.telemetry.get_mut(telemetry_name) {
+            Ok(telemetry_reader
+                .pop_front(flush, timeout, &self.sal_info)
+                .await)
+        } else {
+            Err(())
+        }
+    }
+
+    pub async fn pop_telemetry_back(
+        &mut self,
+        telemetry_name: &str,
+        flush: bool,
+        timeout: Duration,
+    ) -> std::result::Result<Option<Value>, ()> {
+        if let Some(telemetry_reader) = self.telemetry.get_mut(telemetry_name) {
+            Ok(telemetry_reader
+                .pop_back(flush, timeout, &self.sal_info)
+                .await)
         } else {
             Err(())
         }
