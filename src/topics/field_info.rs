@@ -104,11 +104,11 @@ impl FieldInfo {
         description: &str,
     ) -> FieldInfo {
         FieldInfo {
-            name: String::from(name),
-            sal_type: String::from(sal_type),
-            count: count,
-            units: String::from(units),
-            description: String::from(description),
+            name: name.to_owned(),
+            sal_type: sal_type.to_owned(),
+            count,
+            units: units.to_owned(),
+            description: description.to_owned(),
             default_scalar_value: FieldInfo::get_default_scalar_value(sal_type),
         }
     }

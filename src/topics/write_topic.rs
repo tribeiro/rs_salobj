@@ -6,15 +6,6 @@ use kafka::producer;
 use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
 use std::time::Duration;
 
-/// Maximum value for the ``private_seqNum`` field of each topic,
-/// a 4 byte signed integer.
-/// For command topics this field is the command ID, and it must be unique
-/// for each command in order to avoid collisions (since there is only one
-/// ``ackcmd`` topic that is shared by all commands).
-/// For other topics its use is unspecified but it may prove handy to
-/// increment it (with wraparound) for each data point.
-const MAX_SEQ_NUM: i64 = i64::MAX;
-
 /// Base struct for writing a topic.
 pub struct WriteTopic {
     /// The name of the topic.
@@ -45,7 +36,7 @@ impl WriteTopic {
             index: sal_info.get_index() as i64,
             indexed: sal_info.is_indexed(),
             origin: domain.get_origin() as i64,
-            identity: domain.get_identity().to_owned(),
+            identity: domain.get_identity(),
             producer: producer::Producer::from_hosts(vec!["localhost:9092".to_owned()])
                 .with_ack_timeout(Duration::from_secs(1))
                 .with_required_acks(producer::RequiredAcks::One)

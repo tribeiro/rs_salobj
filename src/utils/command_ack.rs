@@ -37,13 +37,13 @@ impl CommandAck {
         seq_num: i64,
     ) -> CommandAck {
         CommandAck {
-            ack: ack,
-            error: error,
-            result: result,
-            identity: identity,
-            origin: origin,
-            timeout: timeout,
-            seq_num: seq_num,
+            ack,
+            error,
+            result,
+            identity,
+            origin,
+            timeout,
+            seq_num,
         }
     }
 
@@ -57,6 +57,22 @@ impl CommandAck {
     /// Is this acknowledgement a good/non failed response?
     pub fn is_good(&self) -> bool {
         sal_enums::is_ack_good(&self.ack)
+    }
+
+    pub fn get_identity(&self) -> &str {
+        &self.identity
+    }
+
+    pub fn get_origin(&self) -> i64 {
+        self.origin
+    }
+
+    pub fn get_timeout(&self) -> std::time::Duration {
+        self.timeout
+    }
+
+    pub fn get_seq_num(&self) -> i64 {
+        self.seq_num
     }
 }
 

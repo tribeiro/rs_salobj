@@ -9,7 +9,7 @@ pub struct NoInterfaceFileError {
 impl fmt::Display for NoInterfaceFileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let err_msg = self.err_msg.clone();
-        write!(f, "{}", format!("NoInterfaceFileError::{err_msg}"))
+        write!(f, "NoInterfaceFileError::{err_msg}")
     }
 }
 

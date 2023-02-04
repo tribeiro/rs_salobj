@@ -23,6 +23,12 @@ pub struct AvroSchema {
     description: String,
 }
 
+impl Default for TopicInfo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TopicInfo {
     /// Create a new empty instance of `TopicInfo`.
     pub fn new() -> TopicInfo {
@@ -88,12 +94,20 @@ impl TopicInfo {
         &self.topic_name
     }
 
+    pub fn get_topic_subname(&self) -> &str {
+        &self.topic_subname
+    }
+
     pub fn get_sal_name(&self) -> String {
         format!("{}_{}", self.component_name, self.topic_name)
     }
 
     pub fn get_fields_name(&self) -> HashSet<String> {
         self.fields.keys().cloned().collect()
+    }
+
+    pub fn get_partitions(&self) -> usize {
+        self.partitions
     }
 
     /// Make avro schema for the topic.

@@ -21,7 +21,6 @@ use std::env;
 pub struct SalInfo<'a> {
     name: String,
     index: isize,
-    topic_subname: String,
     component_info: ComponentInfo,
     topic_schema: HashMap<String, Schema>,
     encoder: AvroEncoder<'a>,
@@ -46,7 +45,7 @@ impl<'a> SalInfo<'a> {
             .into_iter()
             .map(|(topic, avro_schema)| {
                 (
-                    topic.to_owned(),
+                    topic,
                     Schema::parse_str(&serde_json::to_string(&avro_schema).unwrap()).unwrap(),
                 )
             })
@@ -54,10 +53,9 @@ impl<'a> SalInfo<'a> {
 
         SalInfo {
             name: name.to_owned(),
-            index: index,
-            topic_subname: topic_subname.clone(),
-            component_info: component_info,
-            topic_schema: topic_schema,
+            index,
+            component_info,
+            topic_schema,
             encoder: SalInfo::make_encoder(),
             decoder: SalInfo::make_decoder(),
         }
@@ -76,7 +74,7 @@ impl<'a> SalInfo<'a> {
         timeout: f32,
     ) -> Record {
         let sal_name = self.get_sal_name("ackcmd");
-        let mut record = Record::new(&self.topic_schema.get(&sal_name).unwrap()).unwrap();
+        let mut record = Record::new(self.topic_schema.get(&sal_name).unwrap()).unwrap();
         record.put("private_seqNum", Value::Int(private_seqnum));
         record.put("ack", Value::Int(ack as i32));
         record.put("error", Value::Int(error));
@@ -96,6 +94,11 @@ impl<'a> SalInfo<'a> {
         self.index
     }
 
+    /// Get the component description
+    pub fn get_description(&self) -> &str {
+        self.component_info.get_description()
+    }
+
     /// Get name[:index]
     ///
     /// The suffix is only passed if the component is index.
@@ -103,7 +106,7 @@ impl<'a> SalInfo<'a> {
         if self.is_indexed() {
             format!("{}:{}", self.name, self.index)
         } else {
-            format!("{}", self.name)
+            self.name.to_string()
         }
     }
 
@@ -114,7 +117,12 @@ impl<'a> SalInfo<'a> {
 
     /// Make schema registry topic name
     pub fn make_topic_name(&self, topic_name: &str) -> String {
-        format!("lsst.{}.{}.{}", self.topic_subname, self.name, topic_name)
+        format!(
+            "lsst.{}.{}.{}",
+            self.component_info.get_topic_subname(),
+            self.name,
+            topic_name
+        )
         // "lsst.test.Test.logevent_heartbeat".to_owned()
     }
 
@@ -150,18 +158,18 @@ impl<'a> SalInfo<'a> {
     pub fn get_topics_name(&self) -> Vec<String> {
         self.get_telemetry_names()
             .into_iter()
-            .map(|topic_name| self.make_topic_name(&topic_name).to_owned())
+            .map(|topic_name| self.make_topic_name(&topic_name))
             .chain(
                 self.get_event_names()
                     .into_iter()
-                    .map(|topic_name| self.make_topic_name(&topic_name).to_owned()),
+                    .map(|topic_name| self.make_topic_name(&topic_name)),
             )
             .chain(
                 self.get_command_names()
                     .into_iter()
-                    .map(|topic_name| self.make_topic_name(&topic_name).to_owned()),
+                    .map(|topic_name| self.make_topic_name(&topic_name)),
             )
-            .chain(vec![self.make_topic_name(&"ackcmd").to_owned()])
+            .chain(vec![self.make_topic_name("ackcmd")])
             .collect()
     }
 
@@ -260,17 +268,13 @@ impl<'a> SalInfo<'a> {
         for (topic, avro_schema) in topic_schema.iter() {
             let schema = serde_json::to_string(&avro_schema).unwrap();
             let supplied_schema = SuppliedSchema {
-                name: Some(self.make_topic_name(&topic)),
+                name: Some(self.make_topic_name(topic)),
                 schema_type: SchemaType::Avro,
-                schema: schema,
+                schema,
                 references: vec![],
             };
-            let decode = post_schema(
-                &sr_settings,
-                self.make_subject_name(&topic),
-                supplied_schema,
-            )
-            .await;
+            let decode =
+                post_schema(&sr_settings, self.make_subject_name(topic), supplied_schema).await;
             result.entry(topic.to_owned()).or_insert(decode);
         }
         result

@@ -45,8 +45,6 @@ pub struct Item {
     description: String,
     #[serde(rename = "IDL_Type", default = "String::new")]
     idl_type: String,
-    #[serde(rename = "IDL_Size", default = "default_int")]
-    idl_size: usize,
     #[serde(rename = "Units", default = "String::new")]
     units: String,
     #[serde(rename = "Count", default = "default_int")]
@@ -61,7 +59,7 @@ impl SalTopic {
     /// Return topic name.
     pub fn get_topic_name(&self) -> String {
         let efdb_name = &self.efdb_topic;
-        match efdb_name.split_once("_") {
+        match efdb_name.split_once('_') {
             Some((_, name)) => String::from(name),
             None => panic!(
                 "{}",

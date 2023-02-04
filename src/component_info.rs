@@ -1,7 +1,6 @@
 use crate::sal_subsystem;
 use crate::topics::topic_info::{self, AvroSchema, TopicInfo};
 use std::collections::HashMap;
-use std::hash::Hash;
 extern crate serde;
 extern crate serde_xml_rs;
 
@@ -25,25 +24,19 @@ impl ComponentInfo {
         let component_commands: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
             .get_commands(topic_subname)
             .into_iter()
-            .filter_map(|(topic_name, items)| {
-                Some((topic_name.replace("SALGeneric", &name), items))
-            })
+            .map(|(topic_name, items)| (topic_name.replace("SALGeneric", name), items))
             .collect();
 
         let component_events: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
             .get_events(topic_subname)
             .into_iter()
-            .filter_map(|(topic_name, items)| {
-                Some((topic_name.replace("SALGeneric", &name), items))
-            })
+            .map(|(topic_name, items)| (topic_name.replace("SALGeneric", name), items))
             .collect();
 
         let component_telemetry: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
             .get_telemetry(topic_subname)
             .into_iter()
-            .filter_map(|(topic_name, items)| {
-                Some((topic_name.replace("SALGeneric", &name), items))
-            })
+            .map(|(topic_name, items)| (topic_name.replace("SALGeneric", name), items))
             .collect();
 
         ComponentInfo {
@@ -109,6 +102,15 @@ impl ComponentInfo {
         self.telemetry.get(telemetry_name)
     }
 
+    /// Get topic subname.
+    pub fn get_topic_subname(&self) -> String {
+        self.topic_subname.to_owned()
+    }
+
+    pub fn get_description(&self) -> &str {
+        &self.description
+    }
+
     /// Is the component index?
     pub fn is_indexed(&self) -> bool {
         self.indexed
@@ -164,6 +166,11 @@ mod tests {
         );
         assert_eq!(component_info.ack_cmd.get_topic_name(), "ackcmd");
         assert_eq!(component_info.ack_cmd.get_sal_name(), "Test_ackcmd");
+        assert_eq!(component_info.get_topic_subname(), "unit_test");
+        assert_eq!(
+            component_info.get_description(),
+            "A SAL component designed to support testing SAL itself."
+        );
         assert!(
             component_info.commands.contains_key("Test_command_start"),
             "{}",

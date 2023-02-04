@@ -7,9 +7,6 @@ use tokio::time::sleep;
 // Default value for the ``queue_len`` constructor argument.
 const DEFAULT_QUEUE_LEN: usize = 100;
 
-// Minimum value for the ``queue_len`` constructor argument.
-const MIN_QUEUE_LEN: usize = 10;
-
 const POOL_WAIT_TIME: std::time::Duration = std::time::Duration::from_millis(10);
 
 /// Base struct for reading a topic.
@@ -63,8 +60,8 @@ impl ReadTopic {
 
         ReadTopic {
             topic_name: topic_name.to_owned(),
-            topic_publish_name: sal_info.make_topic_name(topic_name).to_owned(),
-            max_history: max_history,
+            topic_publish_name: sal_info.make_topic_name(topic_name),
+            max_history,
             data_queue: VecDeque::with_capacity(DEFAULT_QUEUE_LEN),
             consumer: Consumer::from_hosts(vec!["localhost:9092".to_owned()])
                 .with_topic(sal_info.make_topic_name(topic_name))
@@ -195,7 +192,7 @@ impl ReadTopic {
             }
             sleep(POOL_WAIT_TIME).await;
         }
-        return false;
+        false
     }
 }
 

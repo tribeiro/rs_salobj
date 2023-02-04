@@ -19,7 +19,7 @@ impl RemoteCommand {
     pub fn new(command_name: &str, domain: &Domain, sal_info: &SalInfo) -> RemoteCommand {
         RemoteCommand {
             command_writer: WriteTopic::new(command_name, sal_info, domain),
-            ack_reader: ReadTopic::new("ackcmd", sal_info.clone(), domain.clone(), 0),
+            ack_reader: ReadTopic::new("ackcmd", sal_info, domain, 0),
         }
     }
 

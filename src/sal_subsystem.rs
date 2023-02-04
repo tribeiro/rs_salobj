@@ -104,8 +104,8 @@ impl SALSubsystemInfo {
 
         generic_commands
             .into_iter()
-            .filter_map(|(name, sal_topic)| {
-                Some((
+            .map(|(name, sal_topic)| {
+                (
                     name,
                     TopicInfo::from_generic_sal_topic(
                         &sal_topic,
@@ -113,7 +113,7 @@ impl SALSubsystemInfo {
                         self.indexed,
                         &self.name,
                     ),
-                ))
+                )
             })
             .collect()
     }
@@ -127,11 +127,11 @@ impl SALSubsystemInfo {
 
         commands
             .into_iter()
-            .filter_map(|(name, sal_topic)| {
-                Some((
+            .map(|(name, sal_topic)| {
+                (
                     name,
                     TopicInfo::from_sal_topic(&sal_topic, topic_subname, self.indexed),
-                ))
+                )
             })
             .collect()
     }
@@ -146,8 +146,8 @@ impl SALSubsystemInfo {
 
         generic_events
             .into_iter()
-            .filter_map(|(name, sal_topic)| {
-                Some((
+            .map(|(name, sal_topic)| {
+                (
                     name,
                     TopicInfo::from_generic_sal_topic(
                         &sal_topic,
@@ -155,7 +155,7 @@ impl SALSubsystemInfo {
                         self.indexed,
                         &self.name,
                     ),
-                ))
+                )
             })
             .collect()
     }
@@ -166,11 +166,11 @@ impl SALSubsystemInfo {
 
         events
             .into_iter()
-            .filter_map(|(name, sal_topic)| {
-                Some((
+            .map(|(name, sal_topic)| {
+                (
                     name,
                     TopicInfo::from_sal_topic(&sal_topic, topic_subname, self.indexed),
-                ))
+                )
             })
             .collect()
     }
@@ -184,18 +184,13 @@ impl SALSubsystemInfo {
 
         telemetry
             .into_iter()
-            .filter_map(|(name, sal_topic)| {
-                Some((
+            .map(|(name, sal_topic)| {
+                (
                     name,
                     TopicInfo::from_sal_topic(&sal_topic, topic_subname, self.indexed),
-                ))
+                )
             })
             .collect()
-    }
-
-    fn get_generics(&self) -> HashMap<String, topic_info::TopicInfo> {
-        let sal_objects_generics = SALObjects::sal_generics();
-        HashMap::new()
     }
 }
 

@@ -4,7 +4,7 @@ use num_traits::{cast::cast, PrimInt};
 use std::{fmt, str::FromStr, string::ParseError};
 
 /// SAL return codes.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum SalRetCode {
     Ok = 0,
     Error = -1,
