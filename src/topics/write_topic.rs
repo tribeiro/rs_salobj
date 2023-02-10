@@ -37,7 +37,7 @@ impl WriteTopic {
             indexed: sal_info.is_indexed(),
             origin: domain.get_origin() as i64,
             identity: domain.get_identity(),
-            producer: producer::Producer::from_hosts(vec!["localhost:9092".to_owned()])
+            producer: producer::Producer::from_hosts(Domain::get_client_hosts())
                 .with_ack_timeout(Duration::from_secs(1))
                 .with_required_acks(producer::RequiredAcks::One)
                 .create()
