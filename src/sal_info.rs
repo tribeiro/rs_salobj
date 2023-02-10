@@ -1,6 +1,6 @@
-use crate::component_info::ComponentInfo;
 use crate::sal_enums;
 use crate::topics::topic_info::TopicInfo;
+use crate::{component_info::ComponentInfo, domain::Domain};
 use apache_avro::{
     types::{Record, Value},
     Schema,
@@ -281,7 +281,7 @@ impl<'a> SalInfo<'a> {
     }
 
     pub fn make_sr_settings() -> SrSettings {
-        SrSettings::new("http://localhost:8081".to_owned())
+        SrSettings::new(Domain::get_schema_registry_url())
     }
 
     pub fn make_encoder<'b>() -> AvroEncoder<'b> {
