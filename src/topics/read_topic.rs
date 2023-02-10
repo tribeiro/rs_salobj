@@ -63,7 +63,7 @@ impl ReadTopic {
             topic_publish_name: sal_info.make_topic_name(topic_name),
             max_history,
             data_queue: VecDeque::with_capacity(DEFAULT_QUEUE_LEN),
-            consumer: Consumer::from_hosts(vec!["localhost:9092".to_owned()])
+            consumer: Consumer::from_hosts(Domain::get_client_hosts())
                 .with_topic(sal_info.make_topic_name(topic_name))
                 .with_fallback_offset(fetch_offset)
                 .with_group(format!("{}", domain.get_origin()))
