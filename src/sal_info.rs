@@ -1,3 +1,70 @@
+//! Store information about one SAL component and index.
+//!
+//! A SAL component is mostly defined by its name, which maps to an interface.
+//! A component interface is basically a collection of topics. Topics in SAL
+//! comes in 4 different forms; commands, command acknowledgement, events and
+//! telemetry. Each topic category maps to a set of Quality of Service, in the
+//! message passing system and also defines how data should be handled by
+//! components.
+//!
+//! The SalInfo module keeps track of a component interface and provides
+//! utility methods to operate with it.
+//!
+//! # Topic Naming Convention
+//!
+//! SAL topics follow a specific naming convention and, internally, are used in
+//! different contexts. The following is a census of the different ways topics
+//! are referred to in the code.
+//!
+//! * `topic_name`: This is the name of the topic preceded by the type, when it
+//! is an event or a command.
+//!
+//!   Basically:
+//!
+//!   * `logevent_scalars`: Event named `scalars`.
+//!   * `scalars`: Telemetry named `scalars`.
+//!   * `command_setScalars`: Command named `setScalars`.
+//!
+//! * `sal_name`: This is the `topic_name` preceded by the name of the
+//! component.
+//!
+//!   For example:
+//!
+//!   * `Test_logevent_scalars`.
+//!   * `Test_scalars`.
+//!   * `Test_command_setScalars`.
+//!
+//! * `schema_registry_name`: The name of the topic in the schema registry.
+//! This is composed of the static string `lsst`, the topic subname, the
+//! component name and the topic name separated by "dots".
+//!
+//!   For example:
+//!
+//!   * `lsst.test.Test.logevent_scalars`.
+//!   * `lsst.test.Test.scalars`.
+//!   * `lsst.test.Test.command_setScalars`.
+//!
+//!   In the cases above the topic subname is `test`. This is controlled by the
+//! environment variable `LSST_TOPIC_SUBNAME` and allows us to "namespace" the
+//! topics.
+//!
+//! * `subject_name`: This is the name used to register the topic in the kafka
+//! broker. This is composed of the static string `-value` appended to the
+//! `schema_registry_name`, e.g.:
+//!
+//!   * `lsst.test.Test.logevent_scalars-value`.
+//!   * `lsst.test.Test.scalars-value`.
+//!   * `lsst.test.Test.command_setScalars-value`.
+//!
+//! * `namespace`: The namespace of the topic schema. This is used in the topic
+//! avro schema. This consists of the component name appended to the static
+//! string "lsst.sal.kafka-".
+//!
+//!   For example:
+//!
+//!   * `lsst.ts.kafka-Test`.
+//!
+
 use crate::sal_enums;
 use crate::topics::topic_info::TopicInfo;
 use crate::{component_info::ComponentInfo, domain::Domain};
