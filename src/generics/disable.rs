@@ -42,7 +42,7 @@ mod tests {
             })
             .collect();
 
-        let topic_schema = avro_schema.get("Test_command_disable").unwrap();
+        let topic_schema = avro_schema.get("command_disable").unwrap();
         let mut topic_record = Record::new(&topic_schema).unwrap();
 
         topic_record.put("private_sndStamp", Value::Double(1.234));

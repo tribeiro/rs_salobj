@@ -56,7 +56,7 @@ mod tests {
             })
             .collect();
 
-        let summary_state_schema = avro_schema.get("Test_logevent_summaryState").unwrap();
+        let summary_state_schema = avro_schema.get("logevent_summaryState").unwrap();
         let mut summary_state_record = Record::new(&summary_state_schema).unwrap();
 
         summary_state_record.put("summaryState", Value::Long(2));

@@ -53,7 +53,7 @@ mod tests {
             })
             .collect();
 
-        let topic_schema = avro_schema.get("Test_logevent_logLevel").unwrap();
+        let topic_schema = avro_schema.get("logevent_logLevel").unwrap();
         let mut topic_record = Record::new(&topic_schema).unwrap();
 
         topic_record.put("level", Value::Int(0));
