@@ -1,3 +1,10 @@
+//! High-level representation of topics.
+//!
+//! This module contains utilities to represent a component topic structure
+//! in sensible way as well as mechanisms to convert topic definition into
+//! avro schema.
+//!
+
 use crate::topics::field_info;
 use crate::topics::sal_objects::SalTopic;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -42,6 +49,11 @@ impl TopicInfo {
         }
     }
 
+    /// Create [TopicInfo] for ackcmd topic.
+    ///
+    /// This topic is not defined in any component schema only in code.
+    ///
+    /// See (SalInfo)[crate::sal_info] for more information.
     pub fn get_ackcmd(component_name: &str, topic_subname: &str, indexed: bool) -> TopicInfo {
         TopicInfo {
             component_name: String::from(component_name),
@@ -90,22 +102,38 @@ impl TopicInfo {
         }
     }
 
+    /// Get topic name.
+    ///
+    /// See (SalInfo)[crate::sal_info] for more information on topic naming
+    /// conventions.
     pub fn get_topic_name(&self) -> &str {
         &self.topic_name
     }
 
+    /// Get topic subname.
+    ///
+    /// See (SalInfo)[crate::sal_info] for more information on topic naming
+    /// conventions.
     pub fn get_topic_subname(&self) -> &str {
         &self.topic_subname
     }
 
+    /// Get a topic sal name.
+    ///
+    /// See (SalInfo)[crate::sal_info] for more information on topic naming
+    /// conventions.
     pub fn get_sal_name(&self) -> String {
         format!("{}_{}", self.component_name, self.topic_name)
     }
 
+    /// Get a [HashSet] with the names of all fields in this topic.
     pub fn get_fields_name(&self) -> HashSet<String> {
         self.fields.keys().cloned().collect()
     }
 
+    /// Get number of partitions in this topic.
+    ///
+    /// This is a Kafka QoS property.
     pub fn get_partitions(&self) -> usize {
         self.partitions
     }
@@ -134,6 +162,12 @@ impl TopicInfo {
     }
 
     /// Get private fields.
+    ///
+    /// Private fields are additional fields included in SAL topics that are
+    /// not defined in the topic basic structure. In a sense having these
+    /// private fields is what makes a topic a SAL topic, in addition to
+    /// conforming with (naming)[crate::sal_info] conventions and other
+    /// details.
     fn get_private_fields(indexed: bool) -> HashMap<String, field_info::FieldInfo> {
         let private_fields = HashMap::from([
             (
