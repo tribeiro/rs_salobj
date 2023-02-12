@@ -1,3 +1,11 @@
+//! Stores information and behavior shared by all clients.
+//!
+//! The [Domain] struct and its implementation stores information about the
+//! client identity and origin and holds an instance to the kafka client.
+//!
+//! When developing applications with salobj you will want to reduce the number
+//! of [Domain] instances, ideally having only one per application.
+
 use kafka::client::KafkaClient;
 use kafka::error::Error as KafkaError;
 use std::env;
