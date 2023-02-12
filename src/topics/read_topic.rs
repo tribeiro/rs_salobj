@@ -60,11 +60,11 @@ impl ReadTopic {
 
         ReadTopic {
             topic_name: topic_name.to_owned(),
-            topic_publish_name: sal_info.make_topic_name(topic_name),
+            topic_publish_name: sal_info.make_schema_registry_topic_name(topic_name),
             max_history,
             data_queue: VecDeque::with_capacity(DEFAULT_QUEUE_LEN),
             consumer: Consumer::from_hosts(Domain::get_client_hosts())
-                .with_topic(sal_info.make_topic_name(topic_name))
+                .with_topic(sal_info.make_schema_registry_topic_name(topic_name))
                 .with_fallback_offset(fetch_offset)
                 .with_group(format!("{}", domain.get_origin()))
                 .with_offset_storage(GroupOffsetStorage::Kafka)
@@ -90,10 +90,6 @@ impl ReadTopic {
     }
 
     /// Has any data ever been seen for this topic?
-    ///
-    /// # Panic
-    ///
-    /// If sal_info was not started.
     pub fn has_data(&self) -> bool {
         self.current_data.is_some()
     }
@@ -219,7 +215,11 @@ mod tests {
         let topics: Vec<String> = sal_info
             .get_telemetry_names()
             .into_iter()
-            .map(|topic_name| sal_info.make_topic_name(&topic_name).to_owned())
+            .map(|topic_name| {
+                sal_info
+                    .make_schema_registry_topic_name(&topic_name)
+                    .to_owned()
+            })
             .collect();
 
         println!("Loading metadata for topics: {topics:?}");

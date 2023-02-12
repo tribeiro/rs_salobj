@@ -1,8 +1,17 @@
+//! Utility functions to parse SAL objects.
+//!
+//! SAL components interfaces are (currently) defined in xml format. Each
+//! component can contain 3 particular xml files to define their commands,
+//! events and telemetry topics. They can also declare usage of generic
+//! topics. The acknowledgement topic is defined in code only.
+//!
+
 use crate::utils::xml_utils::{read_xml_interface, unwrap_xml_interface};
 use std::collections::HashMap;
 
 use super::field_info;
 
+/// SAL Objects for a component.
 #[derive(Deserialize, Debug)]
 pub struct SALObjects {
     #[serde(rename = "SALCommandSet", default = "SALTopicSet::new")]
@@ -13,12 +22,14 @@ pub struct SALObjects {
     sal_telemetry_set: SALTopicSet,
 }
 
+/// A set of topics for a component.
 #[derive(Deserialize, Debug)]
 struct SALTopicSet {
     #[serde(rename = "$value")]
     topic_set: Vec<SalTopic>,
 }
 
+/// Topic definition.
 #[derive(Deserialize, Debug, Clone)]
 pub struct SalTopic {
     #[serde(rename = "Subsystem")]
@@ -33,10 +44,12 @@ pub struct SalTopic {
     item: Vec<Item>,
 }
 
+/// Default value for the category field.
 fn default_category() -> String {
     String::from("NO_CATEGORY")
 }
 
+/// A single item (e.g. attribute) for a topic.
 #[derive(Deserialize, Debug, Clone)]
 pub struct Item {
     #[serde(rename = "EFDB_Name", default = "String::new")]
@@ -51,12 +64,16 @@ pub struct Item {
     count: usize,
 }
 
+/// Default int for optional field in topic items.
 fn default_int() -> usize {
     0
 }
 
 impl SalTopic {
     /// Return topic name.
+    ///
+    /// See [SalInfo](crate::sal_info) module for detail on topic
+    /// naming convention.
     pub fn get_topic_name(&self) -> String {
         let efdb_name = &self.efdb_topic;
         match efdb_name.split_once('_') {
@@ -104,8 +121,11 @@ impl SalTopic {
 }
 
 impl SALObjects {
-    /// Get the topic names.
-    pub fn get_topic_names(&self) -> HashMap<String, Vec<String>> {
+    /// Get all topics SAL names.
+    ///
+    /// See [SalInfo](crate::sal_info) module for detail on topic
+    /// naming convention.
+    pub fn get_all_sal_names(&self) -> HashMap<String, Vec<String>> {
         let sal_command_set = Vec::clone(&self.sal_command_set.topic_set);
         let sal_event_set = Vec::clone(&self.sal_event_set.topic_set);
         let sal_telemetry_set = Vec::clone(&self.sal_telemetry_set.topic_set);
@@ -130,31 +150,49 @@ impl SALObjects {
     }
 
     /// Get command definitions.
+    ///
+    /// Returns a HashMap with sal_name as key and SalTopic definition as
+    /// value.
     pub fn get_commands(&self) -> HashMap<String, SalTopic> {
         self.sal_command_set.get_items()
     }
 
-    /// Get command definitions.
+    /// Get generic command definitions from a category (e.g. csc).
+    ///
+    /// Returns a HashMap with sal_name as key and SalTopic definition as
+    /// value.
     pub fn get_category_commands(&self, category: &str) -> HashMap<String, SalTopic> {
         self.sal_command_set.get_category_items(category)
     }
 
     /// Get events definitions.
+    ///
+    /// Returns a HashMap with sal_name as key and SalTopic definition as
+    /// value.
     pub fn get_events(&self) -> HashMap<String, SalTopic> {
         self.sal_event_set.get_items()
     }
 
-    /// Get events definitions.
+    /// Get generic events definitions from a category (e.g. csc).
+    ///
+    /// Returns a HashMap with sal_name as key and SalTopic definition as
+    /// value.
     pub fn get_category_events(&self, category: &str) -> HashMap<String, SalTopic> {
         self.sal_event_set.get_category_items(category)
     }
 
     /// Get telemetry definitions.
+    ///
+    /// Returns a HashMap with sal_name as key and SalTopic definition as
+    /// value.
     pub fn get_telemetry(&self) -> HashMap<String, SalTopic> {
         self.sal_telemetry_set.get_items()
     }
 
-    /// Get telemetry definitions.
+    /// Get generic telemetry definitions from a category (e.g. csc).
+    ///
+    /// Returns a HashMap with sal_name as key and SalTopic definition as
+    /// value.
     pub fn get_category_telemetry(&self, category: &str) -> HashMap<String, SalTopic> {
         self.sal_telemetry_set.get_category_items(category)
     }
@@ -226,10 +264,10 @@ mod tests {
     use std::collections::HashSet;
 
     #[test]
-    fn get_topic_names_sal_generics() {
+    fn get_all_sal_names_sal_generics() {
         let sal_objects = SALObjects::sal_generics();
 
-        let generics = sal_objects.get_topic_names();
+        let generics = sal_objects.get_all_sal_names();
         let expected_generic_commands = vec![
             "SALGeneric_command_abort",
             "SALGeneric_command_enable",
@@ -265,9 +303,9 @@ mod tests {
     }
 
     #[test]
-    fn get_topic_names_test_component() {
+    fn get_all_sal_names_test_component() {
         let sal_objects = SALObjects::new("Test");
-        let test_component_topic_names = sal_objects.get_topic_names();
+        let test_component_topic_names = sal_objects.get_all_sal_names();
 
         let expected_test_commands = vec![
             "Test_command_setScalars",

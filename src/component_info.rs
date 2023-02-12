@@ -1,5 +1,18 @@
-use crate::sal_subsystem;
-use crate::topics::topic_info::{self, AvroSchema, TopicInfo};
+//! Information about a SAL Component.
+//!
+//! A SAL Component is a combination of commands, events and telemetry.
+//! This module encapsulates all the information derived from a component
+//! schema definition, augmented with the properties that made them a valid
+//! SAL Component. For example, [ComponentInfo] includes the acknowledgement
+//! topic as well as the component name, topic subname, description and
+//! other relevant information.
+//!
+
+use crate::{
+    sal_subsystem,
+    topics::topic_info::{self, AvroSchema, TopicInfo},
+    utils::xml_utils::convert_sal_name_to_topic_name,
+};
 use std::collections::HashMap;
 extern crate serde;
 extern crate serde_xml_rs;
@@ -10,9 +23,16 @@ pub struct ComponentInfo {
     topic_subname: String,
     description: String,
     indexed: bool,
+    /// Command acknowledgment topic definition.
     ack_cmd: topic_info::TopicInfo,
+    /// Map with the commands definition. They key is the
+    /// (topic name)[crate::sal_info].
     commands: HashMap<String, topic_info::TopicInfo>,
+    /// Map with the events definition. They key is the
+    /// (topic name)[crate::sal_info].
     events: HashMap<String, topic_info::TopicInfo>,
+    /// Map with the telemetry definition. They key is the
+    /// (topic name)[crate::sal_info].
     telemetry: HashMap<String, topic_info::TopicInfo>,
 }
 
@@ -24,19 +44,19 @@ impl ComponentInfo {
         let component_commands: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
             .get_commands(topic_subname)
             .into_iter()
-            .map(|(topic_name, items)| (topic_name.replace("SALGeneric", name), items))
+            .map(|(sal_name, items)| (convert_sal_name_to_topic_name(name, &sal_name), items))
             .collect();
 
         let component_events: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
             .get_events(topic_subname)
             .into_iter()
-            .map(|(topic_name, items)| (topic_name.replace("SALGeneric", name), items))
+            .map(|(sal_name, items)| (convert_sal_name_to_topic_name(name, &sal_name), items))
             .collect();
 
         let component_telemetry: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
             .get_telemetry(topic_subname)
             .into_iter()
-            .map(|(topic_name, items)| (topic_name.replace("SALGeneric", name), items))
+            .map(|(sal_name, items)| (convert_sal_name_to_topic_name(name, &sal_name), items))
             .collect();
 
         ComponentInfo {
@@ -60,46 +80,51 @@ impl ComponentInfo {
         &self.ack_cmd
     }
 
-    /// Get command names.
-    pub fn get_command_names(&self) -> Vec<String> {
+    /// Get command topic names.
+    pub fn get_topic_name_commands(&self) -> Vec<String> {
         self.commands
             .keys()
             .into_iter()
-            .map(|topic| topic.to_owned().replace(&format!("{}_", self.name), ""))
+            .map(|topic| topic.to_owned())
             .collect()
     }
 
     /// Get command topic info.
-    pub fn get_command_topic_info(&self, command_name: &str) -> Option<&TopicInfo> {
-        self.commands.get(command_name)
+    pub fn get_topic_info_command(&self, topic_name: &str) -> Option<&TopicInfo> {
+        self.commands.get(topic_name)
     }
 
-    /// Get event names.
-    pub fn get_event_names(&self) -> Vec<String> {
+    /// Get event topic names.
+    pub fn get_topic_name_events(&self) -> Vec<String> {
         self.events
             .keys()
             .into_iter()
-            .map(|topic| topic.to_owned().replace(&format!("{}_", self.name), ""))
+            .map(|topic| topic.to_owned())
             .collect()
     }
 
     /// Get event topic info.
-    pub fn get_event_topic_info(&self, event_name: &str) -> Option<&TopicInfo> {
-        self.events.get(event_name)
+    pub fn get_topic_info_event(&self, topic_name: &str) -> Option<&TopicInfo> {
+        self.events.get(topic_name)
     }
 
-    /// Get telemetry names.
-    pub fn get_telemetry_names(&self) -> Vec<String> {
+    /// Get telemetry topic names.
+    pub fn get_topic_name_telemetry(&self) -> Vec<String> {
         self.telemetry
             .keys()
             .into_iter()
-            .map(|topic| topic.to_owned().replace(&format!("{}_", self.name), ""))
+            .map(|topic| topic.to_owned())
             .collect()
     }
 
     /// Get telemetry topic info.
-    pub fn get_telemetry_topic_info(&self, telemetry_name: &str) -> Option<&TopicInfo> {
-        self.telemetry.get(telemetry_name)
+    pub fn get_topic_info_telemetry(&self, topic_name: &str) -> Option<&TopicInfo> {
+        self.telemetry.get(topic_name)
+    }
+
+    /// Get component name.
+    pub fn get_component_name(&self) -> String {
+        self.name.to_owned()
     }
 
     /// Get topic subname.
@@ -117,20 +142,19 @@ impl ComponentInfo {
     }
 
     /// Make avro schema for all topics in the component.
+    ///
+    /// Returns Hashmap with topic name as key and [AvroSchema] as value.
     pub fn make_avro_schema(&self) -> HashMap<String, AvroSchema> {
-        HashMap::from([(
-            format!("{}_ackcmd", self.name),
-            self.ack_cmd.make_avro_schema(),
-        )])
-        .into_iter()
-        .chain(ComponentInfo::make_avro_schema_for_topic_set(
-            &self.commands,
-        ))
-        .chain(ComponentInfo::make_avro_schema_for_topic_set(&self.events))
-        .chain(ComponentInfo::make_avro_schema_for_topic_set(
-            &self.telemetry,
-        ))
-        .collect()
+        HashMap::from([("ackcmd".to_owned(), self.ack_cmd.make_avro_schema())])
+            .into_iter()
+            .chain(ComponentInfo::make_avro_schema_for_topic_set(
+                &self.commands,
+            ))
+            .chain(ComponentInfo::make_avro_schema_for_topic_set(&self.events))
+            .chain(ComponentInfo::make_avro_schema_for_topic_set(
+                &self.telemetry,
+            ))
+            .collect()
     }
 
     /// Make avro schema for a set of topics (a hashmap of topic_name, topic_info).
@@ -172,22 +196,18 @@ mod tests {
             "A SAL component designed to support testing SAL itself."
         );
         assert!(
-            component_info.commands.contains_key("Test_command_start"),
+            component_info.commands.contains_key("command_start"),
             "{}",
-            format!("{component_info_commands:?} has no item 'Test_command_start'")
+            format!("{component_info_commands:?} has no item 'command_start'")
         );
         assert!(
-            component_info
-                .commands
-                .contains_key("Test_command_setScalars"),
+            component_info.commands.contains_key("command_setScalars"),
             "{}",
-            format!("{component_info_commands:?} has no item 'Test_command_setScalars'")
+            format!("{component_info_commands:?} has no item 'command_setScalars'")
         );
-        assert!(component_info
-            .events
-            .contains_key("Test_logevent_heartbeat"));
-        assert!(component_info.events.contains_key("Test_logevent_scalars"));
-        assert!(component_info.telemetry.contains_key("Test_scalars"));
+        assert!(component_info.events.contains_key("logevent_heartbeat"));
+        assert!(component_info.events.contains_key("logevent_scalars"));
+        assert!(component_info.telemetry.contains_key("scalars"));
     }
 
     #[test]
@@ -205,7 +225,7 @@ mod tests {
             })
             .collect();
 
-        let heartbeat_schema = avro_schema.get("Test_logevent_heartbeat").unwrap();
+        let heartbeat_schema = avro_schema.get("logevent_heartbeat").unwrap();
         let heartbeat_record = Record::new(&heartbeat_schema).unwrap();
 
         let record_fields: HashSet<String> = heartbeat_record

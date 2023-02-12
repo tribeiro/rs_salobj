@@ -49,9 +49,7 @@ mod tests {
             })
             .collect();
 
-        let topic_schema = avro_schema
-            .get("GenericCamera_logevent_statusCode")
-            .unwrap();
+        let topic_schema = avro_schema.get("logevent_statusCode").unwrap();
         let mut topic_record = Record::new(&topic_schema).unwrap();
 
         topic_record.put("mask", Value::Int(0));

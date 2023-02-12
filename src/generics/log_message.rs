@@ -84,7 +84,7 @@ mod tests {
             })
             .collect();
 
-        let schema = avro_schema.get("Test_logevent_logMessage").unwrap();
+        let schema = avro_schema.get("logevent_logMessage").unwrap();
         let mut record = Record::new(&schema).unwrap();
 
         record.put("name", Value::String("Test".to_owned()));

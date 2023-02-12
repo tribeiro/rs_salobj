@@ -1,3 +1,70 @@
+//! Store information about one SAL component and index.
+//!
+//! A SAL component is mostly defined by its name, which maps to an interface.
+//! A component interface is basically a collection of topics. Topics in SAL
+//! comes in 4 different forms; commands, command acknowledgement, events and
+//! telemetry. Each topic category maps to a set of Quality of Service, in the
+//! message passing system and also defines how data should be handled by
+//! components.
+//!
+//! The SalInfo module keeps track of a component interface and provides
+//! utility methods to operate with it.
+//!
+//! # Topic Naming Convention
+//!
+//! SAL topics follow a specific naming convention and, internally, are used in
+//! different contexts. The following is a census of the different ways topics
+//! are referred to in the code.
+//!
+//! * `topic_name`: This is the name of the topic preceded by the type, when it
+//! is an event or a command.
+//!
+//!   Basically:
+//!
+//!   * `logevent_scalars`: Event named `scalars`.
+//!   * `scalars`: Telemetry named `scalars`.
+//!   * `command_setScalars`: Command named `setScalars`.
+//!
+//! * `sal_name`: This is the `topic_name` preceded by the name of the
+//! component.
+//!
+//!   For example:
+//!
+//!   * `Test_logevent_scalars`.
+//!   * `Test_scalars`.
+//!   * `Test_command_setScalars`.
+//!
+//! * `schema_registry_name`: The name of the topic in the schema registry.
+//! This is composed of the static string `lsst`, the topic subname, the
+//! component name and the topic name separated by "dots".
+//!
+//!   For example:
+//!
+//!   * `lsst.test.Test.logevent_scalars`.
+//!   * `lsst.test.Test.scalars`.
+//!   * `lsst.test.Test.command_setScalars`.
+//!
+//!   In the cases above the topic subname is `test`. This is controlled by the
+//! environment variable `LSST_TOPIC_SUBNAME` and allows us to "namespace" the
+//! topics.
+//!
+//! * `subject_name`: This is the name used to register the topic in the kafka
+//! broker. This is composed of the static string `-value` appended to the
+//! `schema_registry_name`, e.g.:
+//!
+//!   * `lsst.test.Test.logevent_scalars-value`.
+//!   * `lsst.test.Test.scalars-value`.
+//!   * `lsst.test.Test.command_setScalars-value`.
+//!
+//! * `namespace`: The namespace of the topic schema. This is used in the topic
+//! avro schema. This consists of the component name appended to the static
+//! string "lsst.sal.kafka-".
+//!
+//!   For example:
+//!
+//!   * `lsst.ts.kafka-Test`.
+//!
+
 use crate::sal_enums;
 use crate::topics::topic_info::TopicInfo;
 use crate::{component_info::ComponentInfo, domain::Domain};
@@ -19,9 +86,9 @@ use std::env;
 
 ///Information for one SAL component and index.
 pub struct SalInfo<'a> {
-    name: String,
     index: isize,
     component_info: ComponentInfo,
+    /// HashMap with topics schema, key is topic name.
     topic_schema: HashMap<String, Schema>,
     encoder: AvroEncoder<'a>,
     decoder: AvroDecoder<'a>,
@@ -52,7 +119,6 @@ impl<'a> SalInfo<'a> {
             .collect();
 
         SalInfo {
-            name: name.to_owned(),
             index,
             component_info,
             topic_schema,
@@ -73,8 +139,7 @@ impl<'a> SalInfo<'a> {
         result: &str,
         timeout: f32,
     ) -> Record {
-        let sal_name = self.get_sal_name("ackcmd");
-        let mut record = Record::new(self.topic_schema.get(&sal_name).unwrap()).unwrap();
+        let mut record = Record::new(self.topic_schema.get("ackcmd").unwrap()).unwrap();
         record.put("private_seqNum", Value::Int(private_seqnum));
         record.put("ack", Value::Int(ack as i32));
         record.put("error", Value::Int(error));
@@ -99,28 +164,32 @@ impl<'a> SalInfo<'a> {
         self.component_info.get_description()
     }
 
-    /// Get name[:index]
+    /// Get name\[:index\]
     ///
     /// The suffix is only passed if the component is index.
     pub fn get_name_index(&self) -> String {
         if self.is_indexed() {
-            format!("{}:{}", self.name, self.index)
+            format!(
+                "{}:{}",
+                self.component_info.get_component_name(),
+                self.index
+            )
         } else {
-            self.name.to_string()
+            self.component_info.get_component_name()
         }
     }
 
     /// Get component name.
     pub fn get_name(&self) -> String {
-        self.name.clone()
+        self.component_info.get_component_name()
     }
 
     /// Make schema registry topic name
-    pub fn make_topic_name(&self, topic_name: &str) -> String {
+    pub fn make_schema_registry_topic_name(&self, topic_name: &str) -> String {
         format!(
             "lsst.{}.{}.{}",
             self.component_info.get_topic_subname(),
-            self.name,
+            self.component_info.get_component_name(),
             topic_name
         )
         // "lsst.test.Test.logevent_heartbeat".to_owned()
@@ -134,42 +203,42 @@ impl<'a> SalInfo<'a> {
     pub fn make_subject_name(&self, topic_name: &str) -> String {
         format!(
             "{}-value",
-            self.make_topic_name(topic_name)
+            self.make_schema_registry_topic_name(topic_name)
                 .replace(&format!(".{}_", self.get_name()), ".")
         )
     }
 
     /// Get name of all commands topics.
     pub fn get_command_names(&self) -> Vec<String> {
-        self.component_info.get_command_names()
+        self.component_info.get_topic_name_commands()
     }
 
     /// Get names of all events topics.
     pub fn get_event_names(&self) -> Vec<String> {
-        self.component_info.get_event_names()
+        self.component_info.get_topic_name_events()
     }
 
     /// Get names of all telemetry topics.
     pub fn get_telemetry_names(&self) -> Vec<String> {
-        self.component_info.get_telemetry_names()
+        self.component_info.get_topic_name_telemetry()
     }
 
     /// Get names of all the topics.
     pub fn get_topics_name(&self) -> Vec<String> {
         self.get_telemetry_names()
             .into_iter()
-            .map(|topic_name| self.make_topic_name(&topic_name))
+            .map(|topic_name| self.make_schema_registry_topic_name(&topic_name))
             .chain(
                 self.get_event_names()
                     .into_iter()
-                    .map(|topic_name| self.make_topic_name(&topic_name)),
+                    .map(|topic_name| self.make_schema_registry_topic_name(&topic_name)),
             )
             .chain(
                 self.get_command_names()
                     .into_iter()
-                    .map(|topic_name| self.make_topic_name(&topic_name)),
+                    .map(|topic_name| self.make_schema_registry_topic_name(&topic_name)),
             )
-            .chain(vec![self.make_topic_name("ackcmd")])
+            .chain(vec![self.make_schema_registry_topic_name("ackcmd")])
             .collect()
     }
 
@@ -177,57 +246,57 @@ impl<'a> SalInfo<'a> {
     ///
     /// This high-level method will identify if a topic is a command, event,
     /// telemetry or ackcmd and return the appropriate TopicInfo.
-    pub fn get_topic_info(&self, sal_name: &str) -> Option<&TopicInfo> {
-        if self.is_ackcmd(sal_name) {
+    pub fn get_topic_info(&self, topic_name: &str) -> Option<&TopicInfo> {
+        if self.is_ackcmd(topic_name) {
             Some(self.component_info.get_ackcmd_topic_info())
-        } else if self.is_command(sal_name) {
-            self.get_command_topic_info(sal_name)
-        } else if self.is_event(sal_name) {
-            self.get_event_topic_info(sal_name)
+        } else if self.is_command(topic_name) {
+            self.get_command_topic_info(topic_name)
+        } else if self.is_event(topic_name) {
+            self.get_event_topic_info(topic_name)
         } else {
-            self.get_telemetry_topic_info(sal_name)
+            self.get_telemetry_topic_info(topic_name)
         }
     }
 
     /// Check if topic name matches command acknowledgement.
-    fn is_ackcmd(&self, sal_name: &str) -> bool {
-        sal_name == self.get_sal_name("ackcmd")
+    fn is_ackcmd(&self, topic_name: &str) -> bool {
+        topic_name == "ackcmd"
     }
 
     /// Check if topic name matches command name.
     ///
     /// This method does not test if the topic is a valid topic from the
     /// component.
-    pub fn is_command(&self, sal_name: &str) -> bool {
-        sal_name.contains("_command_")
+    pub fn is_command(&self, topic_name: &str) -> bool {
+        topic_name.starts_with("command_")
     }
 
     /// Check if topic name matches event name.
     ///
     /// This method does not test if the topic is a valid topic from the
     /// component.
-    pub fn is_event(&self, sal_name: &str) -> bool {
-        sal_name.contains("_logevent_")
+    pub fn is_event(&self, topic_name: &str) -> bool {
+        topic_name.starts_with("logevent_")
     }
 
     /// Get topic info for a particular command.
-    fn get_command_topic_info(&self, sal_name: &str) -> Option<&TopicInfo> {
-        self.component_info.get_command_topic_info(sal_name)
+    fn get_command_topic_info(&self, topic_name: &str) -> Option<&TopicInfo> {
+        self.component_info.get_topic_info_command(topic_name)
     }
 
     /// Get topic info for a particular event.
-    fn get_event_topic_info(&self, sal_name: &str) -> Option<&TopicInfo> {
-        self.component_info.get_event_topic_info(sal_name)
+    fn get_event_topic_info(&self, topic_name: &str) -> Option<&TopicInfo> {
+        self.component_info.get_topic_info_event(topic_name)
     }
 
     /// Get topic info for a particular telemetry.
-    fn get_telemetry_topic_info(&self, sal_name: &str) -> Option<&TopicInfo> {
-        self.component_info.get_telemetry_topic_info(sal_name)
+    fn get_telemetry_topic_info(&self, topic_name: &str) -> Option<&TopicInfo> {
+        self.component_info.get_topic_info_telemetry(topic_name)
     }
 
     /// Get schema for topic.
-    pub fn get_topic_schema(&self, sal_name: &str) -> Option<&Schema> {
-        self.topic_schema.get(sal_name)
+    pub fn get_topic_schema(&self, topic_name: &str) -> Option<&Schema> {
+        self.topic_schema.get(topic_name)
     }
 
     /// Assert that a topic name is a valid topic for this component.
@@ -236,12 +305,10 @@ impl<'a> SalInfo<'a> {
     ///
     /// If topic name is not part of the component.
     pub fn assert_is_valid_topic(&self, topic_name: &str) {
-        let topic_sal_name = self.get_sal_name(topic_name);
-
         assert!(
-            self.topic_schema.contains_key(&topic_sal_name) || topic_name == "ackcmd",
+            self.topic_schema.contains_key(topic_name) || topic_name == "ackcmd",
             "No topic {} in component {}:: Valid topics are {:?}",
-            topic_sal_name,
+            topic_name,
             self.get_name(),
             self.topic_schema.keys()
         )
@@ -268,7 +335,7 @@ impl<'a> SalInfo<'a> {
         for (topic, avro_schema) in topic_schema.iter() {
             let schema = serde_json::to_string(&avro_schema).unwrap();
             let supplied_schema = SuppliedSchema {
-                name: Some(self.make_topic_name(topic)),
+                name: Some(self.make_schema_registry_topic_name(topic)),
                 schema_type: SchemaType::Avro,
                 schema,
                 references: vec![],
@@ -404,7 +471,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get ackcmd
-        sal_info.get_topic_info(&"Test_ackcmd").unwrap();
+        sal_info.get_topic_info(&"ackcmd").unwrap();
     }
 
     #[test]
@@ -412,7 +479,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get command
-        sal_info.get_topic_info(&"Test_command_start").unwrap();
+        sal_info.get_topic_info(&"command_start").unwrap();
     }
 
     #[test]
@@ -421,7 +488,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get command
-        sal_info.get_topic_info(&"Test_command_startBad").unwrap();
+        sal_info.get_topic_info(&"command_startBad").unwrap();
     }
 
     #[test]
@@ -429,7 +496,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get event
-        sal_info.get_topic_info(&"Test_logevent_scalars").unwrap();
+        sal_info.get_topic_info(&"logevent_scalars").unwrap();
     }
 
     #[test]
@@ -438,9 +505,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get event
-        sal_info
-            .get_topic_info(&"Test_logevent_scalarsBad")
-            .unwrap();
+        sal_info.get_topic_info(&"logevent_scalarsBad").unwrap();
     }
 
     #[test]
@@ -448,7 +513,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get telemetry
-        sal_info.get_topic_info(&"Test_scalars").unwrap();
+        sal_info.get_topic_info(&"scalars").unwrap();
     }
 
     #[test]
@@ -457,6 +522,6 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1);
 
         // This will panic if fails to get telemetry
-        sal_info.get_topic_info(&"Test_scalarsBad").unwrap();
+        sal_info.get_topic_info(&"scalarsBad").unwrap();
     }
 }

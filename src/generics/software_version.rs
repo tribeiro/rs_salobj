@@ -70,7 +70,7 @@ mod tests {
             })
             .collect();
 
-        let topic_schema = avro_schema.get("Test_logevent_softwareVersions").unwrap();
+        let topic_schema = avro_schema.get("logevent_softwareVersions").unwrap();
         let mut topic_record = Record::new(&topic_schema).unwrap();
 
         topic_record.put("salVersion", Value::String("vX.Y.Z".to_owned()));

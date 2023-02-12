@@ -1,3 +1,9 @@
+//! Client to interact with SAL components.
+//!
+//! A [Remote] is a client/user side tool to communicate with SAL components.
+//! It allows users to send commands and receive events and telemetry to
+//! components.
+
 use crate::domain;
 use crate::sal_info;
 use crate::topics::base_topic::BaseTopic;
@@ -103,8 +109,7 @@ impl<'a> Remote<'a> {
     }
 
     pub fn get_command_schema(&self, command_name: &str) -> Schema {
-        let sal_name = self.sal_info.get_sal_name(command_name);
-        WriteTopic::get_avro_schema(&self.sal_info, &sal_name)
+        WriteTopic::get_avro_schema(&self.sal_info, command_name)
     }
 
     /// Get component index.
@@ -119,9 +124,7 @@ impl<'a> Remote<'a> {
         timeout: Duration,
         wait_done: bool,
     ) -> Result<CommandAck> {
-        let command_sal_name = self.sal_info.get_sal_name(&command_name);
-
-        assert!(self.sal_info.is_command(&command_sal_name));
+        assert!(self.sal_info.is_command(&command_name));
 
         let command = self.commands.get_mut(&command_name).unwrap();
 

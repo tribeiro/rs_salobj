@@ -112,7 +112,7 @@ impl WriteTopic {
                 _ => continue,
             }
         }
-        let topic_name = sal_info.make_topic_name(&self.get_topic_name());
+        let topic_name = sal_info.make_schema_registry_topic_name(&self.get_topic_name());
         let record_type = self.get_record_type();
 
         let key_strategy =
