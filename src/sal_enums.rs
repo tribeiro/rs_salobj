@@ -1,3 +1,5 @@
+//! Standard enumerations and utilities used by the middleware.
+
 use crate::generics::summary_state::SummaryState;
 use apache_avro::types::Value;
 use num_traits::{cast::cast, PrimInt};
