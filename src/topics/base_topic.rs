@@ -1,3 +1,5 @@
+//! Base topic definition.
+
 use crate::sal_info::SalInfo;
 use apache_avro::types::Record;
 
@@ -14,8 +16,8 @@ pub trait BaseTopic {
     /// `BaseTopic`, use `make_avro_schema` to store the topic schema and this
     /// method to return it. This will make the code faster for runtime topic
     /// creation.
-    fn get_avro_schema(sal_info: &SalInfo, sal_name: &str) -> apache_avro::Schema {
-        sal_info.get_topic_schema(sal_name).unwrap().clone()
+    fn get_avro_schema(sal_info: &SalInfo, topic_name: &str) -> apache_avro::Schema {
+        sal_info.get_topic_schema(topic_name).unwrap().clone()
     }
 
     /// Make data type.
