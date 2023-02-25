@@ -65,13 +65,18 @@
 //!   * `lsst.ts.kafka-Test`.
 //!
 
-use crate::sal_enums;
-use crate::topics::topic_info::TopicInfo;
-use crate::{component_info::ComponentInfo, domain::Domain};
+use crate::{
+    component_info::ComponentInfo,
+    domain::Domain,
+    error::errors::{SalObjError, SalObjResult},
+    sal_enums,
+    topics::topic_info::{AvroSchema, TopicInfo},
+};
 use apache_avro::{
     types::{Record, Value},
     Schema,
 };
+use log;
 use schema_registry_converter::{
     async_impl::{
         avro::{AvroDecoder, AvroEncoder},
@@ -83,47 +88,59 @@ use schema_registry_converter::{
 };
 use std::collections::HashMap;
 use std::env;
+use std::error::Error;
 
 ///Information for one SAL component and index.
 pub struct SalInfo<'a> {
     index: isize,
     component_info: ComponentInfo,
     /// HashMap with topics schema, key is topic name.
-    topic_schema: HashMap<String, Schema>,
+    topic_schema: HashMap<String, Result<Schema, Box<dyn Error>>>,
     encoder: AvroEncoder<'a>,
     decoder: AvroDecoder<'a>,
 }
 
 impl<'a> SalInfo<'a> {
     /// Create a new instance of `SalInfo`.
-    pub fn new(name: &str, index: isize) -> SalInfo<'a> {
+    pub fn new(name: &str, index: isize) -> SalObjResult<SalInfo<'a>> {
         let topic_subname = match env::var("LSST_TOPIC_SUBNAME") {
             Ok(val) => val,
-            Err(_) => panic!("You must define environment variable LSST_TOPIC_SUBNAME"),
+            Err(_) => {
+                return Err(SalObjError::new(
+                    "Environment variable LSST_TOPIC_SUBNAME not defined.",
+                ))
+            }
         };
-        let component_info = ComponentInfo::new(name, &topic_subname);
+        let component_info = ComponentInfo::new(name, &topic_subname)?;
 
         if index != 0 && !component_info.is_indexed() {
-            panic!("Invalid index={index}. Component {name} is not indexed. Index must be 0.")
+            return Err(SalObjError::new(&format!(
+                "Invalid index={index}. Component {name} is not indexed. Index must be 0."
+            )));
         }
 
         let topic_schema = component_info
             .make_avro_schema()
             .into_iter()
-            .map(|(topic, avro_schema)| {
-                (
-                    topic,
-                    Schema::parse_str(&serde_json::to_string(&avro_schema).unwrap()).unwrap(),
-                )
-            })
+            .map(|(topic, avro_schema)| (topic, SalInfo::get_schema(&avro_schema)))
             .collect();
 
-        SalInfo {
+        Ok(SalInfo {
             index,
             component_info,
             topic_schema,
             encoder: SalInfo::make_encoder(),
             decoder: SalInfo::make_decoder(),
+        })
+    }
+
+    fn get_schema(schema: &AvroSchema) -> Result<Schema, Box<dyn Error>> {
+        match serde_json::to_string(schema) {
+            Ok(serialized) => match Schema::parse_str(&serialized) {
+                Ok(schema) => Ok(schema),
+                Err(error) => Err(Box::new(error)),
+            },
+            Err(error) => Err(Box::new(error)),
         }
     }
 
@@ -138,15 +155,28 @@ impl<'a> SalInfo<'a> {
         error: i32,
         result: &str,
         timeout: f32,
-    ) -> Record {
-        let mut record = Record::new(self.topic_schema.get("ackcmd").unwrap()).unwrap();
-        record.put("private_seqNum", Value::Int(private_seqnum));
-        record.put("ack", Value::Int(ack as i32));
-        record.put("error", Value::Int(error));
-        record.put("result", Value::String(result.to_owned()));
-        record.put("timeout", Value::Float(timeout));
+    ) -> Option<Record> {
+        let topic_schema = self.topic_schema.get("ackcmd")?;
 
-        record
+        match topic_schema {
+            Ok(topic_schema) => {
+                if let Some(mut record) = Record::new(topic_schema) {
+                    record.put("private_seqNum", Value::Int(private_seqnum));
+                    record.put("ack", Value::Int(ack as i32));
+                    record.put("error", Value::Int(error));
+                    record.put("result", Value::String(result.to_owned()));
+                    record.put("timeout", Value::Float(timeout));
+
+                    Some(record)
+                } else {
+                    None
+                }
+            }
+            Err(error) => {
+                log::error!("Error getting ackcmd schema: {error:?}");
+                None
+            }
+        }
     }
 
     /// Is the component indexed?
@@ -296,7 +326,17 @@ impl<'a> SalInfo<'a> {
 
     /// Get schema for topic.
     pub fn get_topic_schema(&self, topic_name: &str) -> Option<&Schema> {
-        self.topic_schema.get(topic_name)
+        if let Some(topic_schema) = self.topic_schema.get(topic_name) {
+            match topic_schema {
+                Ok(topic_schema) => Some(topic_schema),
+                Err(error) => {
+                    log::error!("Error getting {topic_name} schema: {error:?}");
+                    None
+                }
+            }
+        } else {
+            None
+        }
     }
 
     /// Assert that a topic name is a valid topic for this component.
@@ -326,23 +366,36 @@ impl<'a> SalInfo<'a> {
         self.decoder.decode(bytes).await
     }
 
-    pub async fn register_schema(&self) -> HashMap<String, Result<RegisteredSchema, SRCError>> {
+    pub async fn register_schema(
+        &self,
+    ) -> HashMap<String, Result<RegisteredSchema, Box<dyn Error>>> {
         let sr_settings = SalInfo::make_sr_settings();
-        let mut result: HashMap<String, Result<RegisteredSchema, SRCError>> = HashMap::new();
+        let mut result: HashMap<String, Result<RegisteredSchema, Box<dyn Error>>> = HashMap::new();
 
         let topic_schema = self.component_info.make_avro_schema();
 
         for (topic, avro_schema) in topic_schema.iter() {
-            let schema = serde_json::to_string(&avro_schema).unwrap();
-            let supplied_schema = SuppliedSchema {
-                name: Some(self.make_schema_registry_topic_name(topic)),
-                schema_type: SchemaType::Avro,
-                schema,
-                references: vec![],
+            match serde_json::to_string(&avro_schema) {
+                Ok(schema) => {
+                    let supplied_schema = SuppliedSchema {
+                        name: Some(self.make_schema_registry_topic_name(topic)),
+                        schema_type: SchemaType::Avro,
+                        schema,
+                        references: vec![],
+                    };
+                    match post_schema(&sr_settings, self.make_subject_name(topic), supplied_schema)
+                        .await
+                    {
+                        Ok(decode) => result.entry(topic.to_owned()).or_insert(Ok(decode)),
+                        Err(error) => result
+                            .entry(topic.to_owned())
+                            .or_insert(Err(Box::new(error))),
+                    }
+                }
+                Err(error) => result
+                    .entry(topic.to_owned())
+                    .or_insert(Err(Box::new(error))),
             };
-            let decode =
-                post_schema(&sr_settings, self.make_subject_name(topic), supplied_schema).await;
-            result.entry(topic.to_owned()).or_insert(decode);
         }
         result
     }
@@ -369,7 +422,7 @@ mod tests {
 
     #[test]
     fn sal_info_get_command_names() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         let command_names = sal_info.get_command_names();
 
@@ -378,7 +431,7 @@ mod tests {
 
     #[test]
     fn sal_info_get_event_names() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         let event_names = sal_info.get_event_names();
 
@@ -387,7 +440,7 @@ mod tests {
 
     #[test]
     fn sal_info_get_telemetry_names() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         let telemetry_names = sal_info.get_telemetry_names();
 
@@ -397,26 +450,26 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid index=1. Component ATMCS is not indexed. Index must be 0.")]
     fn panic_if_index_for_non_indexed() {
-        let _ = SalInfo::new("ATMCS", 1);
+        let _ = SalInfo::new("ATMCS", 1).unwrap();
     }
 
     #[test]
     fn get_name_index_indexed() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         assert_eq!(sal_info.get_name_index(), "Test:1")
     }
 
     #[test]
     fn get_name_index_non_indexed() {
-        let sal_info = SalInfo::new("ATMCS", 0);
+        let sal_info = SalInfo::new("ATMCS", 0).unwrap();
 
         assert_eq!(sal_info.get_name_index(), "ATMCS")
     }
 
     #[test]
     fn make_ackcmd() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         let ackcmd = sal_info.make_ackcmd(
             12345,
@@ -426,7 +479,7 @@ mod tests {
             60.0,
         );
 
-        let fields: HashMap<String, Value> = ackcmd.fields.into_iter().collect();
+        let fields: HashMap<String, Value> = ackcmd.unwrap().fields.into_iter().collect();
 
         let private_seqnum = match fields.get("private_seqNum").unwrap() {
             Value::Int(value) => value.to_owned(),
@@ -453,7 +506,7 @@ mod tests {
 
     #[test]
     fn assert_is_valid_topic_with_valid_topic() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         sal_info.assert_is_valid_topic("logevent_scalars")
     }
@@ -461,14 +514,14 @@ mod tests {
     #[test]
     #[should_panic]
     fn assert_is_valid_topic_with_invalid_topic() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         sal_info.assert_is_valid_topic("logevent_badTopicName")
     }
 
     #[test]
     fn get_topic_info_ackcmd() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get ackcmd
         sal_info.get_topic_info(&"ackcmd").unwrap();
@@ -476,7 +529,7 @@ mod tests {
 
     #[test]
     fn get_topic_info_command() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get command
         sal_info.get_topic_info(&"command_start").unwrap();
@@ -485,7 +538,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn get_topic_info_bad_command() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get command
         sal_info.get_topic_info(&"command_startBad").unwrap();
@@ -493,7 +546,7 @@ mod tests {
 
     #[test]
     fn get_topic_info_event_scalars() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get event
         sal_info.get_topic_info(&"logevent_scalars").unwrap();
@@ -502,7 +555,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn get_topic_info_bad_event() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get event
         sal_info.get_topic_info(&"logevent_scalarsBad").unwrap();
@@ -510,7 +563,7 @@ mod tests {
 
     #[test]
     fn get_topic_info_telemetry() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get telemetry
         sal_info.get_topic_info(&"scalars").unwrap();
@@ -519,7 +572,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn get_topic_info_bad_telemetry() {
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get telemetry
         sal_info.get_topic_info(&"scalarsBad").unwrap();
