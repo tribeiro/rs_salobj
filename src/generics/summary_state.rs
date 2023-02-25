@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn test_deserialize() {
-        let component_info = ComponentInfo::new("Test", "unit_test");
+        let component_info = ComponentInfo::new("Test", "unit_test").unwrap();
 
         let avro_schema: HashMap<String, Schema> = component_info
             .make_avro_schema()

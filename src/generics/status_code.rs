@@ -39,6 +39,7 @@ mod tests {
         let component_info = ComponentInfo::new("GenericCamera", "unit_test");
 
         let avro_schema: HashMap<String, Schema> = component_info
+            .unwrap()
             .make_avro_schema()
             .into_iter()
             .map(|(name, schema)| {
