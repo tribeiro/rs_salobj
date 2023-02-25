@@ -5,8 +5,10 @@
 //! components.
 
 use crate::domain;
+use crate::error::errors::SalObjResult;
 use crate::sal_info;
 use crate::topics::base_topic::BaseTopic;
+use crate::topics::remote_command;
 use crate::topics::write_topic::WriteTopic;
 use crate::topics::{read_topic::ReadTopic, remote_command::RemoteCommand};
 use crate::utils::command_ack::CommandAck;
@@ -15,8 +17,6 @@ use apache_avro::types::Value;
 use apache_avro::Schema;
 use std::collections::HashMap;
 use std::time::Duration;
-
-type Result<T> = std::result::Result<T, T>;
 
 /// Handle operations on a remote SAL object.
 /// This object can execute commands to and receive telemetry and events from
@@ -40,7 +40,7 @@ impl<'a> Remote<'a> {
         include: Vec<String>,
         exclude: Vec<String>,
         evt_max_history: usize,
-    ) -> Remote<'a> {
+    ) -> SalObjResult<Remote<'a>> {
         if !include.is_empty() && !exclude.is_empty() {
             panic!("include_only and exclude can not both have elements.");
         } else if !include.is_empty() || !exclude.is_empty() {
@@ -50,9 +50,11 @@ impl<'a> Remote<'a> {
             );
         }
 
-        let sal_info = sal_info::SalInfo::new(name, index);
+        let sal_info = sal_info::SalInfo::new(name, index)?;
 
-        domain.register_topics(&sal_info.get_topics_name()).unwrap();
+        if let Err(error) = domain.register_topics(&sal_info.get_topics_name()) {
+            log::warn!("Failed to register topics: {error:?}. Continuing...");
+        }
 
         let commands: HashMap<String, RemoteCommand> = if readonly {
             HashMap::new()
@@ -91,15 +93,19 @@ impl<'a> Remote<'a> {
             })
             .collect();
 
-        Remote {
+        Ok(Remote {
             sal_info,
             commands,
             events,
             telemetry,
-        }
+        })
     }
 
-    pub fn from_name_index(domain: &mut domain::Domain, name: &str, index: isize) -> Remote<'a> {
+    pub fn from_name_index(
+        domain: &mut domain::Domain,
+        name: &str,
+        index: isize,
+    ) -> SalObjResult<Remote<'a>> {
         Remote::new(domain, name, index, false, Vec::new(), Vec::new(), 1)
     }
 
@@ -108,7 +114,7 @@ impl<'a> Remote<'a> {
         self.sal_info.get_name()
     }
 
-    pub fn get_command_schema(&self, command_name: &str) -> Schema {
+    pub fn get_command_schema(&self, command_name: &str) -> Option<Schema> {
         WriteTopic::get_avro_schema(&self.sal_info, command_name)
     }
 
@@ -123,14 +129,22 @@ impl<'a> Remote<'a> {
         parameters: &mut Record<'b>,
         timeout: Duration,
         wait_done: bool,
-    ) -> Result<CommandAck> {
-        assert!(self.sal_info.is_command(&command_name));
+    ) -> remote_command::AckCmdResult {
+        if !self.sal_info.is_command(&command_name) {
+            return Err(CommandAck::invalid_command(&format!(
+                "Invalid command name {command_name}."
+            )));
+        }
 
-        let command = self.commands.get_mut(&command_name).unwrap();
-
-        command
-            .run(parameters, timeout, wait_done, &self.sal_info)
-            .await
+        if let Some(command) = self.commands.get_mut(&command_name) {
+            command
+                .run(parameters, timeout, wait_done, &self.sal_info)
+                .await
+        } else {
+            Err(CommandAck::invalid_command(&format!(
+                "Command {command_name} not in the list of commands."
+            )))
+        }
     }
 
     pub async fn pop_event_front(
@@ -198,7 +212,7 @@ mod tests {
         let mut domain = domain::Domain::new();
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(&mut domain, name, index);
+        let remote = Remote::from_name_index(&mut domain, name, index).unwrap();
 
         assert_eq!("Test", remote.get_name())
     }
@@ -208,7 +222,7 @@ mod tests {
         let mut domain = domain::Domain::new();
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(&mut domain, name, index);
+        let remote = Remote::from_name_index(&mut domain, name, index).unwrap();
 
         assert_eq!(index, remote.get_index());
     }
