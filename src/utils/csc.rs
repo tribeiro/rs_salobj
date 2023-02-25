@@ -9,7 +9,10 @@ use crate::sal_enums::State;
 ///
 /// If `desired_state` is invalid, e.g. Fault or Invalid.
 /// If `initial_state` is invalid.
-pub fn compute_state_transitions(initial_state: State, desired_state: State) -> Vec<String> {
+pub fn compute_state_transitions(
+    initial_state: State,
+    desired_state: State,
+) -> Option<Vec<String>> {
     let ordered_states = [
         State::Offline,
         State::Standby,
@@ -31,7 +34,7 @@ pub fn compute_state_transitions(initial_state: State, desired_state: State) -> 
     // If the initial state is the same as the desired state we can return
     // already with an empty string.
     if initial_state == desired_state {
-        return Vec::new();
+        return None;
     }
 
     let mut state_transitions: Vec<String> = Vec::new();
@@ -42,16 +45,6 @@ pub fn compute_state_transitions(initial_state: State, desired_state: State) -> 
     } else {
         initial_state
     };
-
-    let current_state_position = ordered_states
-        .iter()
-        .position(|state| *state == current_state)
-        .unwrap();
-
-    let desired_state_position = ordered_states
-        .iter()
-        .position(|state| *state == desired_state)
-        .unwrap();
 
     let basic_state_transition_commands: HashMap<(State, State), String> = HashMap::from([
         (
@@ -80,38 +73,52 @@ pub fn compute_state_transitions(initial_state: State, desired_state: State) -> 
         ),
     ]);
 
-    let index_range: Vec<usize> = if desired_state_position > current_state_position {
-        (current_state_position..desired_state_position)
-            .into_iter()
-            .collect()
-    } else {
-        (desired_state_position + 1..current_state_position + 1)
-            .rev()
-            .into_iter()
-            .collect()
-    };
-    let offset = if desired_state_position > current_state_position {
-        1
-    } else {
-        -1
-    };
+    if let Some(current_state_position) = ordered_states
+        .iter()
+        .position(|state| *state == current_state)
+    {
+        if let Some(desired_state_position) = ordered_states
+            .iter()
+            .position(|state| *state == desired_state)
+        {
+            let index_range: Vec<usize> = if desired_state_position > current_state_position {
+                (current_state_position..desired_state_position)
+                    .into_iter()
+                    .collect()
+            } else {
+                (desired_state_position + 1..current_state_position + 1)
+                    .rev()
+                    .into_iter()
+                    .collect()
+            };
+            let offset = if desired_state_position > current_state_position {
+                1
+            } else {
+                -1
+            };
 
-    let mut additional_transitions: Vec<String> = index_range
-        .into_iter()
-        .map(|index| {
-            let transition = (
-                ordered_states[index],
-                ordered_states[(index as isize + offset) as usize],
-            );
-            basic_state_transition_commands
-                .get(&transition)
-                .unwrap()
-                .clone()
-        })
-        .collect();
-    state_transitions.append(&mut additional_transitions);
+            let mut additional_transitions: Vec<String> = index_range
+                .into_iter()
+                .map(|index| {
+                    let transition = (
+                        ordered_states[index],
+                        ordered_states[(index as isize + offset) as usize],
+                    );
+                    basic_state_transition_commands
+                        .get(&transition)
+                        .unwrap()
+                        .clone()
+                })
+                .collect();
+            state_transitions.append(&mut additional_transitions);
 
-    state_transitions.to_owned()
+            Some(state_transitions.to_owned())
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -139,7 +146,7 @@ mod tests {
 
     #[test]
     fn compute_state_transitions_fault_enabled() {
-        let state_transitions = compute_state_transitions(State::Fault, State::Enabled);
+        let state_transitions = compute_state_transitions(State::Fault, State::Enabled).unwrap();
 
         for command in [
             "command_standby".to_string(),
@@ -155,7 +162,7 @@ mod tests {
 
     #[test]
     fn compute_state_transitions_standby_enabled() {
-        let state_transitions = compute_state_transitions(State::Standby, State::Enabled);
+        let state_transitions = compute_state_transitions(State::Standby, State::Enabled).unwrap();
 
         for command in ["command_start".to_string(), "command_enable".to_string()] {
             assert!(
@@ -167,7 +174,7 @@ mod tests {
 
     #[test]
     fn compute_state_transitions_enabled_standby() {
-        let state_transitions = compute_state_transitions(State::Enabled, State::Standby);
+        let state_transitions = compute_state_transitions(State::Enabled, State::Standby).unwrap();
 
         for command in ["command_disable".to_string(), "command_standby".to_string()] {
             assert!(
@@ -179,7 +186,7 @@ mod tests {
 
     #[test]
     fn compute_state_transitions_enabled_offline() {
-        let state_transitions = compute_state_transitions(State::Enabled, State::Offline);
+        let state_transitions = compute_state_transitions(State::Enabled, State::Offline).unwrap();
 
         for command in [
             "command_disable".to_string(),
