@@ -24,7 +24,7 @@ async fn main() {
 
     assert!(client.topics().contains(&topic));
 
-    let sal_info = SalInfo::new(component, 1);
+    let sal_info = SalInfo::new(component, 1).unwrap();
 
     let mut topic_writer = WriteTopic::new(topic, &sal_info, &domain);
 
@@ -34,13 +34,14 @@ async fn main() {
     println!("Writing heartbeat...");
     for i in 0..10 {
         println!("Sending hearbeat {i}...");
-        let mut test_scalars_record = WriteTopic::make_data_type(&schema);
+        let mut test_scalars_record = WriteTopic::make_data_type(&schema).unwrap();
 
         test_scalars_record.put("heartbeat", Value::Boolean(false));
 
         topic_writer
             .write(&mut test_scalars_record, &sal_info)
-            .await;
+            .await
+            .unwrap();
         time::sleep(time::Duration::from_secs(1)).await;
     }
     println!("Done...");
