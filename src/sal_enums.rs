@@ -60,17 +60,17 @@ pub enum SalRetCode {
 }
 
 /// Convert a Value::Long into a SalRetCode enum.
-pub fn get_ackcmd_code(ackcmd: &Value) -> SalRetCode {
+pub fn get_ackcmd_code(ackcmd: Option<&Value>) -> SalRetCode {
     match ackcmd {
-        Value::Long(300) => SalRetCode::CmdAck,
-        Value::Long(301) => SalRetCode::CmdInprogress,
-        Value::Long(302) => SalRetCode::CmdStalled,
-        Value::Long(303) => SalRetCode::CmdComplete,
-        Value::Long(-300) => SalRetCode::CmdNoperm,
-        Value::Long(-301) => SalRetCode::CmdNoack,
-        Value::Long(-302) => SalRetCode::CmdFailed,
-        Value::Long(-303) => SalRetCode::CmdAborted,
-        Value::Long(-304) => SalRetCode::CmdTimeout,
+        Some(Value::Long(300)) => SalRetCode::CmdAck,
+        Some(Value::Long(301)) => SalRetCode::CmdInprogress,
+        Some(Value::Long(302)) => SalRetCode::CmdStalled,
+        Some(Value::Long(303)) => SalRetCode::CmdComplete,
+        Some(Value::Long(-300)) => SalRetCode::CmdNoperm,
+        Some(Value::Long(-301)) => SalRetCode::CmdNoack,
+        Some(Value::Long(-302)) => SalRetCode::CmdFailed,
+        Some(Value::Long(-303)) => SalRetCode::CmdAborted,
+        Some(Value::Long(-304)) => SalRetCode::CmdTimeout,
         _ => SalRetCode::CmdAck,
     }
 }
@@ -119,15 +119,17 @@ impl State {
 
     /// Generate a `State` enumeration from a primitive integer.
     pub fn from<T: PrimInt>(value: T) -> State {
-        let value: u32 = cast(value).unwrap();
-
-        match value {
-            1 => State::Disabled,
-            2 => State::Enabled,
-            3 => State::Fault,
-            4 => State::Offline,
-            5 => State::Standby,
-            _ => State::Invalid,
+        if let Some(value) = cast(value) {
+            match value {
+                1 => State::Disabled,
+                2 => State::Enabled,
+                3 => State::Fault,
+                4 => State::Offline,
+                5 => State::Standby,
+                _ => State::Invalid,
+            }
+        } else {
+            State::Invalid
         }
     }
 }
@@ -164,20 +166,28 @@ mod tests {
 
     #[test]
     fn test_get_ackcmd_code_cmd_default() {
-        assert_eq!(get_ackcmd_code(&Value::Float(10.0)), SalRetCode::CmdAck)
+        assert_eq!(
+            get_ackcmd_code(Some(&Value::Float(10.0))),
+            SalRetCode::CmdAck
+        )
     }
 
     #[test]
     fn test_get_ackcmd_code_cmd_ack() {
-        assert_eq!(get_ackcmd_code(&Value::Long(300)), SalRetCode::CmdAck)
+        assert_eq!(get_ackcmd_code(Some(&Value::Long(300))), SalRetCode::CmdAck)
     }
 
     #[test]
     fn test_get_ackcmd_code_cmd_in_progress() {
         assert_eq!(
-            get_ackcmd_code(&Value::Long(301)),
+            get_ackcmd_code(Some(&Value::Long(301))),
             SalRetCode::CmdInprogress
         )
+    }
+
+    #[test]
+    fn test_get_ackcmd_code_none() {
+        assert_eq!(get_ackcmd_code(None), SalRetCode::CmdAck)
     }
 
     #[test]
