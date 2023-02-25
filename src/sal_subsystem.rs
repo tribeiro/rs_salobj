@@ -1,3 +1,4 @@
+use crate::error::errors::{SalObjError, SalObjResult};
 use crate::topics::sal_objects::SALObjects;
 use crate::topics::topic_info::{self, TopicInfo};
 use crate::utils::xml_utils::read_xml_interface;
@@ -33,27 +34,36 @@ pub struct SALSubsystemInfo {
 impl SALSubsystemSet {
     /// Create new SAL Subsystem Set by reading information from
     /// SalSubsystems.xml file.
-    pub fn new() -> SALSubsystemSet {
-        let xml_interface = read_xml_interface("SALSubsystems.xml").unwrap();
-        serde_xml_rs::from_str(&xml_interface).unwrap()
+    pub fn new() -> SalObjResult<SALSubsystemSet> {
+        let xml_interface = read_xml_interface("SALSubsystems.xml")?;
+        match serde_xml_rs::from_str(&xml_interface) {
+            Ok(sal_subsystem_set) => Ok(sal_subsystem_set),
+            Err(error) => Err(SalObjError::new(&error.to_string())),
+        }
     }
 
-    pub fn get_sal_subsystem_info(self, name: &str) -> SALSubsystemInfo {
+    pub fn get_sal_subsystem_info(&self, name: &str) -> SalObjResult<SALSubsystemInfo> {
         let sal_subsystem_info: Vec<SALSubsystem> = self
             .sal_subsystems
+            .clone()
             .into_iter()
             .filter(|s| s.name == name)
             .collect();
-        assert_eq!(sal_subsystem_info.len(), 1);
+        if sal_subsystem_info.is_empty() {
+            return Err(SalObjError::new("Empty sal subsystem info."));
+        }
 
-        SALSubsystemInfo {
+        let sal_objects_generics = SALObjects::sal_generics()?;
+        let sal_objects_component = SALObjects::new(&sal_subsystem_info[0].name)?;
+
+        Ok(SALSubsystemInfo {
             name: String::from(&sal_subsystem_info[0].name),
             description: String::from(&sal_subsystem_info[0].description),
             indexed: &sal_subsystem_info[0].index_enumeration != "no",
             added_generics: String::from(&sal_subsystem_info[0].added_generics),
-            sal_objects_generics: SALObjects::sal_generics(),
-            sal_objects_component: SALObjects::new(&sal_subsystem_info[0].name),
-        }
+            sal_objects_generics,
+            sal_objects_component,
+        })
     }
 }
 
@@ -201,8 +211,8 @@ mod tests {
 
     #[test]
     fn get_description() {
-        let sal_subsystem_set = SALSubsystemSet::new();
-        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info("Test");
+        let sal_subsystem_set = SALSubsystemSet::new().unwrap();
+        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info("Test").unwrap();
 
         let description = sal_subsystem_info.get_description();
 
@@ -214,8 +224,8 @@ mod tests {
 
     #[test]
     fn is_indexed() {
-        let sal_subsystem_set = SALSubsystemSet::new();
-        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info("Test");
+        let sal_subsystem_set = SALSubsystemSet::new().unwrap();
+        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info("Test").unwrap();
 
         let is_indexed = sal_subsystem_info.is_indexed();
 
@@ -224,8 +234,8 @@ mod tests {
 
     #[test]
     fn get_commands_generics_test_csc() {
-        let sal_subsystem_set = SALSubsystemSet::new();
-        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info("Test");
+        let sal_subsystem_set = SALSubsystemSet::new().unwrap();
+        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info("Test").unwrap();
 
         let commands_generics = sal_subsystem_info.get_commands_generics("unit_test");
 
@@ -246,8 +256,8 @@ mod tests {
     }
     #[test]
     fn get_commands_generics_script_csc() {
-        let sal_subsystem_set = SALSubsystemSet::new();
-        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info("Script");
+        let sal_subsystem_set = SALSubsystemSet::new().unwrap();
+        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info("Script").unwrap();
 
         let commands_generics = sal_subsystem_info.get_commands_generics("unit_test");
 
