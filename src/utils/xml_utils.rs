@@ -1,4 +1,4 @@
-use crate::error::errors::NoInterfaceFileError;
+use crate::error::errors::{SalObjError, SalObjResult};
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -10,7 +10,7 @@ use std::path::Path;
 /// If environment variable TS_XML_DIR does not exists.
 ///
 /// If the directory pointed by TS_XML_DIR does not exists.
-pub fn read_xml_interface(interface: &str) -> Result<String, NoInterfaceFileError> {
+pub fn read_xml_interface(interface: &str) -> SalObjResult<String> {
     match env::var("TS_XML_DIR") {
         Ok(val) => {
             let interfaces_dir = Path::new(&val);
@@ -23,9 +23,12 @@ pub fn read_xml_interface(interface: &str) -> Result<String, NoInterfaceFileErro
 
             let sal_subsystems_path = interfaces_dir.join(interface);
             if sal_subsystems_path.exists() {
-                Ok(fs::read_to_string(sal_subsystems_path).unwrap())
+                match fs::read_to_string(sal_subsystems_path) {
+                    Ok(file_content) => Ok(file_content),
+                    Err(error) => Err(SalObjError::new(&error.to_string())),
+                }
             } else {
-                Err(NoInterfaceFileError::new(&format!(
+                Err(SalObjError::new(&format!(
                     "No interface file for {interface}"
                 )))
             }
@@ -39,7 +42,7 @@ pub fn read_xml_interface(interface: &str) -> Result<String, NoInterfaceFileErro
 /// This method will either return the string part of the result, filtered out
 /// of entries that are undesired or an empty string in case of
 /// NoInterfaceFileError.
-pub fn unwrap_xml_interface(xml_interface: Result<String, NoInterfaceFileError>) -> String {
+pub fn unwrap_xml_interface(xml_interface: SalObjResult<String>) -> String {
     match xml_interface {
         Ok(xml_interface) => xml_interface
             .lines()
