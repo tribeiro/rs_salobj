@@ -1,8 +1,10 @@
 use apache_avro::types::{Record, Value};
 
-use crate::{domain::Domain, sal_info::SalInfo, topics::base_topic::BaseTopic};
+use crate::{
+    domain::Domain, error::errors::SalObjError, sal_info::SalInfo, topics::base_topic::BaseTopic,
+};
 use chrono::Utc;
-use kafka::producer;
+use kafka::{error::Result as KafkaResult, producer};
 use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
 use std::time::Duration;
 
@@ -19,7 +21,7 @@ pub struct WriteTopic {
     /// A string identifying the instance.
     identity: String,
     /// Data producer.
-    producer: producer::Producer,
+    producer: KafkaResult<producer::Producer>,
     /// Sequence number of the written samples. This number is incremented
     /// every time a sample is published.
     seq_num: i64,
@@ -40,8 +42,7 @@ impl WriteTopic {
             producer: producer::Producer::from_hosts(Domain::get_client_hosts())
                 .with_ack_timeout(Duration::from_secs(1))
                 .with_required_acks(producer::RequiredAcks::One)
-                .create()
-                .unwrap(),
+                .create(),
             seq_num: 1,
         }
     }
@@ -86,7 +87,11 @@ impl WriteTopic {
     ///
     /// Originally the `private_sndStamp` has to be tai but this is writing it
     /// as utc. The precision is going to be microseconds.
-    pub async fn write<'r, 'si>(&mut self, data: &mut Record<'r>, sal_info: &SalInfo<'si>) -> i64 {
+    pub async fn write<'r, 'si>(
+        &mut self,
+        data: &mut Record<'r>,
+        sal_info: &SalInfo<'si>,
+    ) -> Result<i64, SalObjError> {
         // read current time in microseconds, as int, convert to f32 then
         // convert to seconds.
         self.seq_num += 1;
@@ -120,13 +125,18 @@ impl WriteTopic {
         let data_fields: Vec<(&str, Value)> =
             data.fields.iter().map(|(k, v)| (&**k, v.clone())).collect();
 
-        let bytes = sal_info.encode(data_fields, key_strategy).await.unwrap();
-
-        self.producer
-            .send(&producer::Record::from_value(&topic_name, bytes))
-            .unwrap();
-
-        self.seq_num
+        match sal_info.encode(data_fields, key_strategy).await {
+            Ok(bytes) => match &mut self.producer {
+                Ok(producer) => {
+                    match producer.send(&producer::Record::from_value(&topic_name, bytes)) {
+                        Ok(_) => Ok(self.seq_num),
+                        Err(error) => Err(SalObjError::from_error(error)),
+                    }
+                }
+                Err(error) => Err(SalObjError::new(&error.to_string())),
+            },
+            Err(error) => Err(SalObjError::from_error(error)),
+        }
     }
 }
 
@@ -139,7 +149,7 @@ mod tests {
     #[test]
     fn test_basics() {
         let domain = Domain::new();
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
         let write_topic = WriteTopic::new("scalars", &sal_info, &domain);
 
         assert_eq!(write_topic.is_indexed(), true);
@@ -151,7 +161,7 @@ mod tests {
     #[should_panic]
     fn new_with_bad_topic_name() {
         let domain = Domain::new();
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         WriteTopic::new("inexistentTopic", &sal_info, &domain);
     }
