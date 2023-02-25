@@ -1,6 +1,14 @@
-use crate::{domain::Domain, sal_info::SalInfo, topics::base_topic::BaseTopic};
+use crate::{
+    domain::Domain,
+    error::errors::{SalObjError, SalObjResult},
+    sal_info::SalInfo,
+    topics::base_topic::BaseTopic,
+};
 use apache_avro::types::Value;
-use kafka::consumer::{Consumer, FetchOffset, GroupOffsetStorage};
+use kafka::{
+    consumer::{Consumer, FetchOffset, GroupOffsetStorage},
+    error::Result as KafkaResult,
+};
 use std::collections::VecDeque;
 use tokio::time::sleep;
 
@@ -32,7 +40,7 @@ pub struct ReadTopic {
     /// Data queue.
     data_queue: VecDeque<Value>,
     /// Topic consumer.
-    consumer: Consumer,
+    consumer: KafkaResult<Consumer>,
 }
 
 impl BaseTopic for ReadTopic {}
@@ -68,8 +76,7 @@ impl ReadTopic {
                 .with_fallback_offset(fetch_offset)
                 .with_group(format!("{}", domain.get_origin()))
                 .with_offset_storage(GroupOffsetStorage::Kafka)
-                .create()
-                .unwrap(),
+                .create(),
             current_data: None,
         }
     }
@@ -127,7 +134,9 @@ impl ReadTopic {
         if flush {
             self.flush();
         }
-        self.pool(timeout, sal_info).await;
+        if let Err(error) = self.pool(timeout, sal_info).await {
+            log::warn!("Error pooling new data: {error}.");
+        }
         self.data_queue.pop_back()
     }
 
@@ -147,7 +156,9 @@ impl ReadTopic {
             self.flush();
         }
         if self.data_queue.is_empty() {
-            self.pool(timeout, sal_info).await;
+            if let Err(error) = self.pool(timeout, sal_info).await {
+                log::warn!("Error pooling new data: {error}.");
+            }
         }
         self.data_queue.pop_front()
     }
@@ -161,34 +172,55 @@ impl ReadTopic {
     /// the backlog is large it may take some tike to finish. A future
     /// implementation will check the message offset and reset it to the head
     /// of the data queue, avoiding unnecessary reads.
-    async fn pool<'b>(&mut self, timeout: std::time::Duration, sal_info: &SalInfo<'b>) -> bool {
-        let timer_task = tokio::spawn(async move {
-            sleep(timeout).await;
-        });
+    async fn pool<'b>(
+        &mut self,
+        timeout: std::time::Duration,
+        sal_info: &SalInfo<'b>,
+    ) -> SalObjResult<usize> {
+        match &mut self.consumer {
+            Ok(consumer) => {
+                let timer_task = tokio::spawn(async move {
+                    sleep(timeout).await;
+                });
 
-        let mut got_any_data = false;
+                let mut n_messages = 0;
 
-        while !timer_task.is_finished() {
-            let mut got_data = false;
-            let messages = self.consumer.poll().unwrap();
-            for ms in messages.iter() {
-                for m in ms.messages() {
-                    let data = sal_info.decode(Some(m.value)).await.unwrap().value;
-                    self.current_data = Some(data.clone());
-                    self.data_queue.push_back(data);
+                while !timer_task.is_finished() {
+                    let mut got_data = false;
+                    match consumer.poll() {
+                        Ok(messages) => {
+                            for ms in messages.iter() {
+                                for m in ms.messages() {
+                                    match sal_info.decode(Some(m.value)).await {
+                                        Ok(data) => {
+                                            let data_value = data.value;
+                                            self.current_data = Some(data_value.clone());
+                                            self.data_queue.push_back(data_value);
+                                            n_messages += 1;
+                                        }
+                                        Err(error) => return Err(SalObjError::from_error(error)),
+                                    };
+                                }
+                                got_data = true;
+                                if let Err(error) = consumer.consume_messageset(ms) {
+                                    return Err(SalObjError::from_error(error));
+                                }
+                            }
+                            if !got_data && n_messages > 0 {
+                                timer_task.abort();
+                                return Ok(n_messages);
+                            }
+                            sleep(POOL_WAIT_TIME).await;
+                        }
+                        Err(error) => {
+                            return Err(SalObjError::from_error(error));
+                        }
+                    }
                 }
-                got_any_data = true;
-                got_data = true;
-                self.consumer.consume_messageset(ms).unwrap();
+                Ok(0)
             }
-            self.consumer.commit_consumed().unwrap();
-            if !got_data && got_any_data {
-                timer_task.abort();
-                return got_any_data;
-            }
-            sleep(POOL_WAIT_TIME).await;
+            Err(error) => Err(SalObjError::new(&error.to_string())),
         }
-        false
     }
 }
 
@@ -202,7 +234,7 @@ mod tests {
     )]
     fn read_topic_new_indexed_0_with_max_history() {
         let domain = Domain::new();
-        let sal_info = SalInfo::new("Test", 0);
+        let sal_info = SalInfo::new("Test", 0).unwrap();
 
         ReadTopic::new("scalars", &sal_info, &domain, 2);
     }
@@ -210,7 +242,7 @@ mod tests {
     #[tokio::test]
     async fn get_no_data() {
         let mut domain = Domain::new();
-        let sal_info = SalInfo::new("Test", 1);
+        let sal_info = SalInfo::new("Test", 1).unwrap();
 
         let topics: Vec<String> = sal_info
             .get_telemetry_names()
