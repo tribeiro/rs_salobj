@@ -7,8 +7,9 @@ use salobj::{
     remote::Remote,
     sal_enums::State,
     topics::{base_topic::BaseTopic, write_topic::WriteTopic},
-    utils::csc::compute_state_transitions,
+    utils::{cli::LogLevel, csc::compute_state_transitions},
 };
+use simple_logger::SimpleLogger;
 use std::time::Duration;
 
 /// Put the CSC in a particular state.
@@ -29,6 +30,9 @@ struct Cli {
     /// Configuration override
     #[clap(long = "config", default_value = "")]
     configuration_override: String,
+
+    #[arg(value_enum, long = "log-level", default_value_t = LogLevel::Info)]
+    log_level: LogLevel,
 }
 
 impl Cli {
@@ -47,13 +51,27 @@ impl Cli {
     pub fn get_component_index(&self) -> isize {
         self.index
     }
+
+    pub fn get_log_level(&self) -> &LogLevel {
+        &self.log_level
+    }
 }
 
 #[tokio::main]
 async fn main() {
+    SimpleLogger::new().init().unwrap();
+
     let cli = Cli::parse();
 
-    println!(
+    match cli.get_log_level() {
+        LogLevel::Trace => log::set_max_level(log::LevelFilter::Trace),
+        LogLevel::Debug => log::set_max_level(log::LevelFilter::Debug),
+        LogLevel::Info => log::set_max_level(log::LevelFilter::Info),
+        LogLevel::Warn => log::set_max_level(log::LevelFilter::Warn),
+        LogLevel::Error => log::set_max_level(log::LevelFilter::Error),
+    };
+
+    log::info!(
         "Sending {} to {:?} state [config:{}].",
         cli.get_component_name(),
         cli.get_desired_state(),
@@ -65,12 +83,13 @@ async fn main() {
         &mut domain,
         &cli.get_component_name(),
         cli.get_component_index(),
-    );
+    )
+    .unwrap();
 
     let timeout = Duration::from_secs(10);
     let wait_done = true;
 
-    println!("Getting current state.");
+    log::debug!("Getting current state.");
     if let Ok(Some(summary_state)) = remote
         .pop_event_back("logevent_summaryState", false, timeout)
         .await
@@ -79,33 +98,37 @@ async fn main() {
             .unwrap()
             .get_summary_state();
 
-        println!("Current state: {summary_state:?}");
+        log::debug!("Current state: {summary_state:?}");
 
-        let state_transition_commands =
-            compute_state_transitions(summary_state, cli.get_desired_state());
-        for cmd in state_transition_commands.iter() {
-            println!("Sending command: {cmd}");
-            let schema = remote.get_command_schema(cmd);
-            let mut record = WriteTopic::make_data_type(&schema);
+        if let Some(state_transition_commands) =
+            compute_state_transitions(summary_state, cli.get_desired_state())
+        {
+            for cmd in state_transition_commands.iter() {
+                log::debug!("Sending command: {cmd}");
+                let schema = remote.get_command_schema(cmd).unwrap();
+                let mut record = WriteTopic::make_data_type(&schema).unwrap();
 
-            if cmd.contains("command_start") {
-                record.put(
-                    "configurationOverride",
-                    Value::String(cli.get_configuration_override()),
-                );
+                if cmd.contains("command_start") {
+                    record.put(
+                        "configurationOverride",
+                        Value::String(cli.get_configuration_override()),
+                    );
+                }
+
+                let ack = remote
+                    .run_command(cmd.to_string(), &mut record, timeout, wait_done)
+                    .await;
+
+                match ack {
+                    Ok(_) => log::info!("Command ok"),
+                    Err(ack) => panic!("Command failed with {ack:?}"),
+                }
             }
-
-            let ack = remote
-                .run_command(cmd.to_string(), &mut record, timeout, wait_done)
-                .await;
-
-            match ack {
-                Ok(_) => println!("Command ok"),
-                Err(ack) => panic!("Command failed with {ack:?}"),
-            }
+        } else {
+            log::warn!("No state transitions.");
         }
     } else {
-        panic!("No summary state from component.");
+        log::error!("No summary state from component.");
     }
-    println!("Done...");
+    log::info!("Done...");
 }

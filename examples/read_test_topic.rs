@@ -24,7 +24,7 @@ async fn main() {
 
     assert!(client.topics().contains(&topic));
 
-    let sal_info = SalInfo::new(component, 1);
+    let sal_info = SalInfo::new(component, 1).unwrap();
     let max_history: usize = 10;
 
     let mut topic_reader = ReadTopic::new(topic, &sal_info, &domain, max_history);

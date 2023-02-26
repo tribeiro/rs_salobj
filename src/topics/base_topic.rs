@@ -16,8 +16,8 @@ pub trait BaseTopic {
     /// `BaseTopic`, use `make_avro_schema` to store the topic schema and this
     /// method to return it. This will make the code faster for runtime topic
     /// creation.
-    fn get_avro_schema(sal_info: &SalInfo, topic_name: &str) -> apache_avro::Schema {
-        sal_info.get_topic_schema(topic_name).unwrap().clone()
+    fn get_avro_schema(sal_info: &SalInfo, topic_name: &str) -> Option<apache_avro::Schema> {
+        sal_info.get_topic_schema(topic_name).cloned()
     }
 
     /// Make data type.
@@ -27,8 +27,7 @@ pub trait BaseTopic {
     /// record, which can be slow to do every single time you want to generate
     /// a topic record. Instead, use this method when creating the topic and
     /// store a copy in your class, then use `get_data_type` to retrieve it.
-    fn make_data_type(avro_schema: &apache_avro::Schema) -> Record {
-        let record = Record::new(avro_schema).unwrap().to_owned();
-        record
+    fn make_data_type(avro_schema: &apache_avro::Schema) -> Option<Record> {
+        Record::new(avro_schema)
     }
 }

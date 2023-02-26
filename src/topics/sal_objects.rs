@@ -6,7 +6,10 @@
 //! topics. The acknowledgement topic is defined in code only.
 //!
 
-use crate::utils::xml_utils::{read_xml_interface, unwrap_xml_interface};
+use crate::{
+    error::errors::{SalObjError, SalObjResult},
+    utils::xml_utils::{read_xml_interface, unwrap_xml_interface},
+};
 use std::collections::HashMap;
 
 use super::field_info;
@@ -198,13 +201,18 @@ impl SALObjects {
     }
 
     /// Create SALObjects from SALGenerics.
-    pub fn sal_generics() -> SALObjects {
-        let xml_interface = read_xml_interface("SALGenerics.xml").unwrap();
-        serde_xml_rs::from_str(&xml_interface).unwrap()
+    pub fn sal_generics() -> SalObjResult<SALObjects> {
+        match read_xml_interface("SALGenerics.xml") {
+            Ok(xml_interface) => match serde_xml_rs::from_str(&xml_interface) {
+                Ok(sal_object) => Ok(sal_object),
+                Err(error) => Err(SalObjError::new(&format!("{error:?}"))),
+            },
+            Err(error) => Err(error),
+        }
     }
 
     /// Create SALObjects from component name.
-    pub fn new(name: &str) -> SALObjects {
+    pub fn new(name: &str) -> SalObjResult<SALObjects> {
         let header = r#"<?xml version="1.0" encoding="UTF-8"?>
         <?xml-stylesheet type="text/xsl" href="http://project.lsst.org/ts/sal_objects/schema/SALCommandSet.xsl"?>
         <SALObjects>
@@ -222,7 +230,10 @@ impl SALObjects {
             "{}{}{}{}{}",
             header, command_xml_interface, events_xml_interface, telemetry_xml_interface, footer,
         );
-        serde_xml_rs::from_str(&xml_interface).unwrap()
+        match serde_xml_rs::from_str(&xml_interface) {
+            Ok(sal_object) => Ok(sal_object),
+            Err(error) => Err(SalObjError::new(&format!("{error:?}"))),
+        }
     }
 }
 
@@ -265,7 +276,7 @@ mod tests {
 
     #[test]
     fn get_all_sal_names_sal_generics() {
-        let sal_objects = SALObjects::sal_generics();
+        let sal_objects = SALObjects::sal_generics().unwrap();
 
         let generics = sal_objects.get_all_sal_names();
         let expected_generic_commands = vec![
@@ -304,7 +315,7 @@ mod tests {
 
     #[test]
     fn get_all_sal_names_test_component() {
-        let sal_objects = SALObjects::new("Test");
+        let sal_objects = SALObjects::new("Test").unwrap();
         let test_component_topic_names = sal_objects.get_all_sal_names();
 
         let expected_test_commands = vec![
@@ -331,7 +342,7 @@ mod tests {
 
     #[test]
     fn get_commands_test_component() {
-        let sal_objects = SALObjects::new("Test");
+        let sal_objects = SALObjects::new("Test").unwrap();
 
         let test_commands = sal_objects.get_commands();
 
@@ -352,7 +363,7 @@ mod tests {
 
     #[test]
     fn get_commands_generics() {
-        let sal_objects = SALObjects::sal_generics();
+        let sal_objects = SALObjects::sal_generics().unwrap();
         let generic_commands = sal_objects.get_commands();
 
         let generic_command_start = generic_commands.get("SALGeneric_command_start").unwrap();
@@ -372,7 +383,7 @@ mod tests {
 
     #[test]
     fn get_commands_category_csc() {
-        let sal_objects = SALObjects::sal_generics();
+        let sal_objects = SALObjects::sal_generics().unwrap();
         let generic_csc_commands = sal_objects.get_category_commands("csc");
 
         let expected_csc_generic_commands = HashSet::from([
@@ -393,7 +404,7 @@ mod tests {
 
     #[test]
     fn get_commands_category_by_name() {
-        let sal_objects = SALObjects::sal_generics();
+        let sal_objects = SALObjects::sal_generics().unwrap();
         let category = "command_setAuthList, command_setLogLevel, logevent_authList, logevent_largeFileObjectAvailable";
         let generic_csc_commands = sal_objects.get_category_commands(category);
 
@@ -410,7 +421,7 @@ mod tests {
 
     #[test]
     fn get_events_category_mandatory() {
-        let sal_objects = SALObjects::sal_generics();
+        let sal_objects = SALObjects::sal_generics().unwrap();
         let generic_csc_events = sal_objects.get_category_events("mandatory");
 
         let expected_csc_generics = HashSet::from([
@@ -428,7 +439,7 @@ mod tests {
 
     #[test]
     fn get_events_category_csc() {
-        let sal_objects = SALObjects::sal_generics();
+        let sal_objects = SALObjects::sal_generics().unwrap();
         let generic_csc_events = sal_objects.get_category_events("csc");
 
         let expected_csc_generics = HashSet::from([
@@ -446,7 +457,7 @@ mod tests {
 
     #[test]
     fn get_events_category_by_name() {
-        let sal_objects = SALObjects::sal_generics();
+        let sal_objects = SALObjects::sal_generics().unwrap();
         let category = "command_setAuthList, command_setLogLevel, logevent_authList, logevent_largeFileObjectAvailable";
         let generic_csc_events = sal_objects.get_category_events(category);
 

@@ -5,8 +5,11 @@
 //! avro schema.
 //!
 
-use crate::topics::field_info;
 use crate::topics::sal_objects::SalTopic;
+use crate::{
+    error::errors::{SalObjError, SalObjResult},
+    topics::field_info,
+};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// Information about one topic.
@@ -148,17 +151,22 @@ impl TopicInfo {
             namespace: format!("lsst.sal.kafka-{component_name}"),
             fields: self
                 .fields
-                .iter()
-                .map(|(_, field_info)| field_info.make_avro_schema())
+                .values()
+                .map(|field_info| field_info.make_avro_schema())
                 .collect(),
             description: self.description.to_owned(),
         }
     }
 
     /// Make schema for the topic.
-    pub fn make_schema(&self) -> apache_avro::Schema {
-        apache_avro::Schema::parse_str(&serde_json::to_string(&self.make_avro_schema()).unwrap())
-            .unwrap()
+    pub fn make_schema(&self) -> SalObjResult<apache_avro::Schema> {
+        match serde_json::to_string(&self.make_avro_schema()) {
+            Ok(avro_schema) => match apache_avro::Schema::parse_str(&avro_schema) {
+                Ok(avro_schema) => Ok(avro_schema),
+                Err(error) => Err(SalObjError::from_error(error)),
+            },
+            Err(error) => Err(SalObjError::from_error(error)),
+        }
     }
 
     /// Get private fields.

@@ -9,6 +9,7 @@
 //!
 
 use crate::{
+    error::errors::SalObjResult,
     sal_subsystem,
     topics::topic_info::{self, AvroSchema, TopicInfo},
     utils::xml_utils::convert_sal_name_to_topic_name,
@@ -37,9 +38,9 @@ pub struct ComponentInfo {
 }
 
 impl ComponentInfo {
-    pub fn new(name: &str, topic_subname: &str) -> ComponentInfo {
-        let sal_subsystem_set = sal_subsystem::SALSubsystemSet::new();
-        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info(name);
+    pub fn new(name: &str, topic_subname: &str) -> SalObjResult<ComponentInfo> {
+        let sal_subsystem_set = sal_subsystem::SALSubsystemSet::new()?;
+        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info(name)?;
 
         let component_commands: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
             .get_commands(topic_subname)
@@ -59,7 +60,7 @@ impl ComponentInfo {
             .map(|(sal_name, items)| (convert_sal_name_to_topic_name(name, &sal_name), items))
             .collect();
 
-        ComponentInfo {
+        Ok(ComponentInfo {
             name: String::from(name),
             topic_subname: String::from(topic_subname),
             description: sal_subsystem_info.get_description(),
@@ -72,7 +73,7 @@ impl ComponentInfo {
             commands: component_commands,
             events: component_events,
             telemetry: component_telemetry,
-        }
+        })
     }
 
     /// Get ackcmd topic info.
@@ -177,7 +178,7 @@ mod tests {
 
     #[test]
     fn create_test_component_info() {
-        let component_info = ComponentInfo::new("Test", "unit_test");
+        let component_info = ComponentInfo::new("Test", "unit_test").unwrap();
         let component_info_commands: Vec<&String> =
             component_info.commands.keys().into_iter().collect();
 
@@ -212,7 +213,7 @@ mod tests {
 
     #[test]
     fn make_avro_schema() {
-        let component_info = ComponentInfo::new("Test", "unit_test");
+        let component_info = ComponentInfo::new("Test", "unit_test").unwrap();
 
         let avro_schema: HashMap<String, Schema> = component_info
             .make_avro_schema()

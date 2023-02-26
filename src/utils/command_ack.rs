@@ -26,6 +26,20 @@ impl fmt::Display for CommandAck {
     }
 }
 
+impl Default for CommandAck {
+    fn default() -> Self {
+        Self {
+            ack: SalRetCode::CmdAck,
+            error: 0,
+            result: "".to_owned(),
+            identity: "".to_owned(),
+            origin: 0,
+            timeout: std::time::Duration::from_secs(0),
+            seq_num: 0,
+        }
+    }
+}
+
 impl CommandAck {
     pub fn new(
         ack: SalRetCode,
@@ -47,6 +61,12 @@ impl CommandAck {
         }
     }
 
+    pub fn invalid_command(result: &str) -> CommandAck {
+        CommandAck {
+            result: result.to_owned(),
+            ..Default::default()
+        }
+    }
     /// Is the acknowledgement final?
     ///
     /// No more acks should be expected after this.
