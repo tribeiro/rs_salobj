@@ -1,5 +1,6 @@
 //! Sub-module to host all utility tools.
 
+pub mod cli;
 pub mod command_ack;
 pub mod csc;
 pub mod macros;
