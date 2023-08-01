@@ -1,22 +1,12 @@
-use crate::{
-    base_topic, sal_enums::State, topics::topic::Topic, utils::xml_utils::get_default_sal_index,
-};
+use crate::{sal_enums::State, topics::base_sal_topic::BaseSALTopic, utils::xml_utils::get_default_sal_index};
+use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
 
-#[derive(Debug, Deserialize)]
+#[add_sal_topic_fields]
+#[derive(Debug, Deserialize, BaseSALTopic)]
 pub struct SummaryState {
     #[serde(rename = "summaryState")]
     summary_state: i32,
-    private_origin: i64,
-    private_identity: String,
-    #[serde(rename = "private_seqNum")]
-    private_seq_num: i64,
-    #[serde(rename = "private_rcvStamp")]
-    private_rcv_stamp: f64,
-    #[serde(rename = "salIndex", default = "get_default_sal_index")]
-    sal_index: i64,
 }
-
-base_topic!(SummaryState);
 
 impl SummaryState {
     pub fn get_summary_state_value(&self) -> i32 {
