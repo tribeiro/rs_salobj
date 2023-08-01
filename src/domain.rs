@@ -138,13 +138,18 @@ mod tests {
 
     #[test]
     fn get_client_hosts_env_not_set() {
-        if env::var("LSST_KAFKA_CLIENT_ADDR").is_ok() {
+        let current_lsst_kafka_client_addr = env::var("LSST_KAFKA_CLIENT_ADDR");
+
+        if current_lsst_kafka_client_addr.is_ok() {
             env::remove_var("LSST_KAFKA_CLIENT_ADDR");
         }
 
         let default_value = DEFAULT_LSST_KAFKA_CLIENT_ADDR.to_owned();
-
-        assert_eq!(Domain::get_client_hosts()[0], default_value)
+        let value = Domain::get_client_hosts()[0].to_owned();
+        if current_lsst_kafka_client_addr.is_ok(){
+            env::set_var("LSST_KAFKA_CLIENT_ADDR", current_lsst_kafka_client_addr.unwrap());
+        }
+        assert_eq!(value, default_value)
     }
 
     #[test]

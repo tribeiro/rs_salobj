@@ -35,6 +35,8 @@ mod sal_subsystem;
 pub mod topics;
 pub mod utils;
 
+pub use base_topic_derive::BaseSALTopic;
+
 #[cfg(test)]
 mod tests {
     #[test]

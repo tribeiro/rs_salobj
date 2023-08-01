@@ -1,0 +1,11 @@
+[package]
+name = "base_topic_derive"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+quote = "1.0.28"
+syn = "2.0.18"
+
+[lib]
+proc-macro = true
