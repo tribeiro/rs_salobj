@@ -12,6 +12,7 @@ use crate::topics::remote_command;
 use crate::topics::write_topic::WriteTopic;
 use crate::topics::{read_topic::ReadTopic, remote_command::RemoteCommand};
 use crate::utils::command_ack::CommandAck;
+use crate::utils::types::{ReadTopicSet, RemoteCommandSet};
 use apache_avro::types::Record;
 use apache_avro::types::Value;
 use apache_avro::Schema;
@@ -26,9 +27,9 @@ use std::time::Duration;
 /// then it will have one Remote for each such component.
 pub struct Remote<'a> {
     sal_info: sal_info::SalInfo<'a>,
-    commands: HashMap<String, RemoteCommand>,
-    events: HashMap<String, ReadTopic>,
-    telemetry: HashMap<String, ReadTopic>,
+    commands: RemoteCommandSet,
+    events: ReadTopicSet,
+    telemetry: ReadTopicSet,
 }
 
 impl<'a> Remote<'a> {
@@ -56,7 +57,7 @@ impl<'a> Remote<'a> {
             log::warn!("Failed to register topics: {error:?}. Continuing...");
         }
 
-        let commands: HashMap<String, RemoteCommand> = if readonly {
+        let commands: RemoteCommandSet = if readonly {
             HashMap::new()
         } else {
             sal_info
@@ -71,7 +72,7 @@ impl<'a> Remote<'a> {
                 .collect()
         };
 
-        let events: HashMap<String, ReadTopic> = sal_info
+        let events: ReadTopicSet = sal_info
             .get_event_names()
             .into_iter()
             .map(|event_name| {
@@ -82,7 +83,7 @@ impl<'a> Remote<'a> {
             })
             .collect();
 
-        let telemetry: HashMap<String, ReadTopic> = sal_info
+        let telemetry: ReadTopicSet = sal_info
             .get_telemetry_names()
             .into_iter()
             .map(|telemetry_name| {
