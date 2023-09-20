@@ -243,6 +243,12 @@ impl<'a> SalInfo<'a> {
         self.component_info.get_topic_name_commands()
     }
 
+    pub fn get_command_type(&self, command_name: &str) -> Option<usize> {
+        self.component_info
+            .get_topic_name_commands()
+            .iter()
+            .position(|name| name == command_name)
+    }
     /// Get names of all events topics.
     pub fn get_event_names(&self) -> Vec<String> {
         self.component_info.get_topic_name_events()
