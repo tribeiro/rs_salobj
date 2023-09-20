@@ -1,6 +1,7 @@
 use std::fmt;
 
 use crate::sal_enums::{self, SalRetCode};
+use crate::topics::base_sal_topic::BaseSALTopic;
 
 #[derive(Debug, Clone)]
 pub struct CommandAck {
@@ -67,6 +68,52 @@ impl CommandAck {
             ..Default::default()
         }
     }
+
+    pub fn make_in_progress<T>(cmd: T, timeout: std::time::Duration, result: &str) -> CommandAck
+    where
+        T: BaseSALTopic,
+    {
+        CommandAck {
+            ack: SalRetCode::CmdInprogress,
+            error: 0,
+            result: result.to_owned(),
+            identity: cmd.get_private_identity().to_owned(),
+            origin: cmd.get_private_origin(),
+            timeout,
+            seq_num: cmd.get_private_seq_num(),
+        }
+    }
+
+    pub fn make_complete<T>(cmd: T) -> CommandAck
+    where
+        T: BaseSALTopic,
+    {
+        CommandAck {
+            ack: SalRetCode::CmdComplete,
+            error: 0,
+            result: "".to_owned(),
+            identity: cmd.get_private_identity().to_owned(),
+            origin: cmd.get_private_origin(),
+            timeout: std::time::Duration::new(0, 0),
+            seq_num: cmd.get_private_seq_num(),
+        }
+    }
+
+    pub fn make_failed<T>(cmd: T, error: isize, result: &str) -> CommandAck
+    where
+        T: BaseSALTopic,
+    {
+        CommandAck {
+            ack: SalRetCode::CmdFailed,
+            error,
+            result: result.to_owned(),
+            identity: cmd.get_private_identity().to_owned(),
+            origin: cmd.get_private_origin(),
+            timeout: std::time::Duration::new(0, 0),
+            seq_num: cmd.get_private_seq_num(),
+        }
+    }
+
     /// Is the acknowledgement final?
     ///
     /// No more acks should be expected after this.
@@ -93,6 +140,18 @@ impl CommandAck {
 
     pub fn get_seq_num(&self) -> i64 {
         self.seq_num
+    }
+
+    pub fn get_ack(&self) -> i64 {
+        self.ack.clone() as i64
+    }
+
+    pub fn get_error(&self) -> isize {
+        self.error
+    }
+
+    pub fn get_result(&self) -> &str {
+        &self.result
     }
 }
 
