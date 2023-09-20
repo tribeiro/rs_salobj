@@ -5,6 +5,7 @@
 
 pub mod base_sal_topic;
 pub mod base_topic;
+pub mod controller_command;
 pub mod field_info;
 pub mod read_topic;
 pub mod remote_command;
