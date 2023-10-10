@@ -1,3 +1,6 @@
+//! Handles Writing command topics and waiting for acknowledgement.
+//!
+
 use crate::{
     domain::Domain,
     sal_enums,

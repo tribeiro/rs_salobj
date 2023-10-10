@@ -2,6 +2,7 @@ use apache_avro::types::{Record, Value};
 
 use crate::{
     domain::Domain, error::errors::SalObjError, sal_info::SalInfo, topics::base_topic::BaseTopic,
+    utils::types::WriteTopicResult,
 };
 use chrono::Utc;
 use kafka::{error::Result as KafkaResult, producer};
@@ -91,7 +92,7 @@ impl WriteTopic {
         &mut self,
         data: &mut Record<'r>,
         sal_info: &SalInfo<'si>,
-    ) -> Result<i64, SalObjError> {
+    ) -> WriteTopicResult {
         // read current time in microseconds, as int, convert to f32 then
         // convert to seconds.
         self.seq_num += 1;
