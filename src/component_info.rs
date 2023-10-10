@@ -85,7 +85,6 @@ impl ComponentInfo {
     pub fn get_topic_name_commands(&self) -> Vec<String> {
         self.commands
             .keys()
-            .into_iter()
             .map(|topic| topic.to_owned())
             .collect()
     }
@@ -99,7 +98,6 @@ impl ComponentInfo {
     pub fn get_topic_name_events(&self) -> Vec<String> {
         self.events
             .keys()
-            .into_iter()
             .map(|topic| topic.to_owned())
             .collect()
     }
@@ -113,7 +111,6 @@ impl ComponentInfo {
     pub fn get_topic_name_telemetry(&self) -> Vec<String> {
         self.telemetry
             .keys()
-            .into_iter()
             .map(|topic| topic.to_owned())
             .collect()
     }
