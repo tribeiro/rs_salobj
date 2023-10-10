@@ -1,22 +1,20 @@
 //! Handles reading command topic and writing acknowledgements.
 
 use apache_avro::types::Value;
-use std::future::Future;
-use std::pin::Pin;
 
 use crate::{
     domain::Domain,
     error::errors::{SalObjError, SalObjResult},
     sal_info::SalInfo,
     topics::{base_topic::BaseTopic, read_topic::ReadTopic, write_topic::WriteTopic},
-    utils::{command_ack::CommandAck, types::WriteTopicResult},
+    utils::{command_ack::CommandAck, types::{WriteTopicResult, ControllerCallbackFunc}},
 };
 
 pub struct ControllerCommand {
     command_reader: ReadTopic,
     ack_writer: WriteTopic,
     command_type: usize,
-    callback: Option<Box<dyn Fn(Value) -> Pin<Box<dyn Future<Output = ()>>>>>,
+    callback: ControllerCallbackFunc,
 }
 
 impl ControllerCommand {
@@ -29,7 +27,7 @@ impl ControllerCommand {
             Ok(ControllerCommand {
                 command_reader: ReadTopic::new(command_name, sal_info, domain, 0),
                 ack_writer: WriteTopic::new("ackcmd", sal_info, domain),
-                command_type: command_type,
+                command_type,
                 callback: None,
             })
         } else {
@@ -45,7 +43,7 @@ impl ControllerCommand {
 
     pub fn set_callback(
         &mut self,
-        callback: Option<Box<dyn Fn(Value) -> Pin<Box<dyn Future<Output = ()>>>>>,
+        callback: ControllerCallbackFunc,
     ) {
         self.callback = callback
     }
