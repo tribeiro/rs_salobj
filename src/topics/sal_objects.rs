@@ -202,12 +202,15 @@ impl SALObjects {
 
     /// Create SALObjects from SALGenerics.
     pub fn sal_generics() -> SalObjResult<SALObjects> {
-        match read_xml_interface("SALGenerics.xml") {
-            Ok(xml_interface) => match serde_xml_rs::from_str(&xml_interface) {
-                Ok(sal_object) => Ok(sal_object),
-                Err(error) => Err(SalObjError::new(&format!("{error:?}"))),
-            },
-            Err(error) => Err(error),
+        let xml_interface = read_xml_interface("SALGenerics.xml");
+        if xml_interface.is_ok() {
+            let xml_interface = unwrap_xml_interface(xml_interface);
+            match serde_xml_rs::from_str(&xml_interface) {
+            Ok(sal_object) => Ok(sal_object),
+            Err(error) => Err(SalObjError::new(&format!("{error:?}"))),
+            }
+        } else {
+            Err(SalObjError::new("Could not read xml interface."))
         }
     }
 
