@@ -83,12 +83,10 @@ pub fn compute_state_transitions(
         {
             let index_range: Vec<usize> = if desired_state_position > current_state_position {
                 (current_state_position..desired_state_position)
-                    .into_iter()
                     .collect()
             } else {
                 (desired_state_position + 1..current_state_position + 1)
                     .rev()
-                    .into_iter()
                     .collect()
             };
             let offset = if desired_state_position > current_state_position {
