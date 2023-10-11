@@ -58,6 +58,9 @@ mod tests {
         summary_state_record.put("private_seqNum", Value::Long(321));
         summary_state_record.put("private_rcvStamp", Value::Double(4.321));
         summary_state_record.put("salIndex", Value::Long(1));
+        summary_state_record.put("private_efdStamp", Value::Double(1.234));
+        summary_state_record.put("private_kafkaStamp", Value::Double(1.234));
+        summary_state_record.put("private_revCode", Value::String("xyz".to_string()));
 
         let mut writer = Writer::with_codec(&summary_state_schema, Vec::new(), Codec::Deflate);
         writer.append(summary_state_record).unwrap();

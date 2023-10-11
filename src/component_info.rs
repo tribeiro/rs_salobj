@@ -83,10 +83,7 @@ impl ComponentInfo {
 
     /// Get command topic names.
     pub fn get_topic_name_commands(&self) -> Vec<String> {
-        self.commands
-            .keys()
-            .map(|topic| topic.to_owned())
-            .collect()
+        self.commands.keys().map(|topic| topic.to_owned()).collect()
     }
 
     /// Get command topic info.
@@ -96,10 +93,7 @@ impl ComponentInfo {
 
     /// Get event topic names.
     pub fn get_topic_name_events(&self) -> Vec<String> {
-        self.events
-            .keys()
-            .map(|topic| topic.to_owned())
-            .collect()
+        self.events.keys().map(|topic| topic.to_owned()).collect()
     }
 
     /// Get event topic info.
@@ -235,8 +229,11 @@ mod tests {
             String::from("salIndex"),
             String::from("private_sndStamp"),
             String::from("private_rcvStamp"),
+            String::from("private_efdStamp"),
+            String::from("private_kafkaStamp"),
             String::from("private_seqNum"),
             String::from("private_identity"),
+            String::from("private_revCode"),
             String::from("private_origin"),
             String::from("heartbeat"),
         ]);

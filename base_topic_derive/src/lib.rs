@@ -94,6 +94,30 @@ pub fn add_sal_topic_fields(_args: TokenStream, input: TokenStream) -> TokenStre
                             })
                             .unwrap(),
                     );
+                    fields.named.push(
+                        syn::Field::parse_named
+                            .parse2(quote! {
+                                #[serde(rename = "private_efdStamp")]
+                                private_efd_stamp: f64
+                            })
+                            .unwrap(),
+                    );
+                    fields.named.push(
+                        syn::Field::parse_named
+                            .parse2(quote! {
+                                #[serde(rename = "private_kafkaStamp")]
+                                private_kafka_stamp: f64
+                            })
+                            .unwrap(),
+                    );
+                    fields.named.push(
+                        syn::Field::parse_named
+                            .parse2(quote! {
+                                #[serde(rename = "private_revCode")]
+                                private_rev_code: String
+                            })
+                            .unwrap(),
+                    );
                 }
                 _ => (),
             }

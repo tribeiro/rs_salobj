@@ -158,6 +158,18 @@ impl TopicInfo {
         }
     }
 
+    /// Get revision code for the topic avro schema.
+    pub fn get_rev_code(&self) -> SalObjResult<String> {
+        match serde_json::to_string_pretty(&self.make_avro_schema()) {
+            Ok(avro_schema) => {
+                let digest = md5::compute(avro_schema.as_bytes());
+
+                Ok(format!("{digest:x}")[0..8].to_owned())
+            }
+            Err(error) => Err(SalObjError::from_error(error)),
+        }
+    }
+
     /// Make schema for the topic.
     pub fn make_schema(&self) -> SalObjResult<apache_avro::Schema> {
         match serde_json::to_string(&self.make_avro_schema()) {
@@ -209,6 +221,26 @@ impl TopicInfo {
                 ),
             ),
             (
+                String::from("private_efdStamp"),
+                field_info::FieldInfo::new(
+                    "private_efdStamp",
+                    "double",
+                    1,
+                    "second",
+                    "UTC time for EFD timestamp. An integer (the number of leap seconds) different from private_sndStamp.",
+                ),
+            ),
+            (
+                String::from("private_kafkaStamp"),
+                field_info::FieldInfo::new(
+                    "private_kafkaStamp",
+                    "double",
+                    1,
+                    "second",
+                    "TAI time at which the Kafka message was created.",
+                ),
+            ),
+            (
                 String::from("private_seqNum"),
                 field_info::FieldInfo::new(
                     "private_seqNum",
@@ -226,6 +258,16 @@ impl TopicInfo {
                     1,
                     "unitless",
                     "Identity of publisher: SAL component name for a CSC or user@host for a user",
+                ),
+            ),
+            (
+                String::from("private_revCode"),
+                field_info::FieldInfo::new(
+                    "private_revCode",
+                    "string",
+                    1,
+                    "unitless",
+                    "Revision hashcode",
                 ),
             ),
             (
@@ -352,8 +394,11 @@ mod tests {
             String::from("salIndex"),
             String::from("private_sndStamp"),
             String::from("private_rcvStamp"),
+            String::from("private_efdStamp"),
+            String::from("private_kafkaStamp"),
             String::from("private_seqNum"),
             String::from("private_identity"),
+            String::from("private_revCode"),
             String::from("private_origin"),
         ]);
 
@@ -441,5 +486,12 @@ mod tests {
             record.fields.into_iter().map(|(field, _)| field).collect();
         let expected_fields = ack_cmd.get_fields_name();
         assert_eq!(record_fields, expected_fields)
+    }
+
+    #[test]
+    fn test_get_rev_code() {
+        let ack_cmd = TopicInfo::get_ackcmd("Test", "unit_test", false);
+        let ack_cmd_rev_code = ack_cmd.get_rev_code().unwrap();
+        assert_eq!(ack_cmd_rev_code, "abd3610e")
     }
 }

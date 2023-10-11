@@ -52,6 +52,9 @@ mod tests {
         topic_record.put("private_seqNum", Value::Long(321));
         topic_record.put("private_rcvStamp", Value::Double(4.321));
         topic_record.put("salIndex", Value::Long(1));
+        topic_record.put("private_efdStamp", Value::Double(1.234));
+        topic_record.put("private_kafkaStamp", Value::Double(1.234));
+        topic_record.put("private_revCode", Value::String("xyz".to_string()));
 
         let mut writer = Writer::with_codec(&topic_schema, Vec::new(), Codec::Deflate);
         writer.append(topic_record).unwrap();
