@@ -158,6 +158,18 @@ impl TopicInfo {
         }
     }
 
+    /// Get revision code for the topic avro schema.
+    pub fn get_rev_code(&self) -> SalObjResult<String> {
+        match serde_json::to_string_pretty(&self.make_avro_schema()) {
+            Ok(avro_schema) => {
+                let digest = md5::compute(avro_schema.as_bytes());
+
+                Ok(format!("{digest:x}")[0..8].to_owned())
+            }
+            Err(error) => Err(SalObjError::from_error(error)),
+        }
+    }
+
     /// Make schema for the topic.
     pub fn make_schema(&self) -> SalObjResult<apache_avro::Schema> {
         match serde_json::to_string(&self.make_avro_schema()) {
@@ -474,5 +486,12 @@ mod tests {
             record.fields.into_iter().map(|(field, _)| field).collect();
         let expected_fields = ack_cmd.get_fields_name();
         assert_eq!(record_fields, expected_fields)
+    }
+
+    #[test]
+    fn test_get_rev_code() {
+        let ack_cmd = TopicInfo::get_ackcmd("Test", "unit_test", false);
+        let ack_cmd_rev_code = ack_cmd.get_rev_code().unwrap();
+        assert_eq!(ack_cmd_rev_code, "abd3610e")
     }
 }
