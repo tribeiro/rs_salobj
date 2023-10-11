@@ -96,12 +96,13 @@ impl WriteTopic {
         // read current time in microseconds, as int, convert to f32 then
         // convert to seconds.
         self.seq_num += 1;
-        data.put(
-            "private_sndStamp",
-            Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6),
-        );
+        let timestamp = Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6);
+        data.put("private_sndStamp", timestamp.clone());
+        data.put("private_efdStamp", timestamp.clone());
+        data.put("private_kafkaStamp", timestamp);
         data.put("private_origin", Value::Long(self.get_origin()));
         data.put("private_identity", Value::String(self.get_identity()));
+        data.put("private_revCode", Value::String("Not Set".to_owned()));
         data.put(
             "private_seqNum",
             Value::Long(self.seq_num), // FIXME: This is supposed to be an increasing number
