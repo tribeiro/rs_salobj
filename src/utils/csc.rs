@@ -82,8 +82,7 @@ pub fn compute_state_transitions(
             .position(|state| *state == desired_state)
         {
             let index_range: Vec<usize> = if desired_state_position > current_state_position {
-                (current_state_position..desired_state_position)
-                    .collect()
+                (current_state_position..desired_state_position).collect()
             } else {
                 (desired_state_position + 1..current_state_position + 1)
                     .rev()

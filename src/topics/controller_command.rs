@@ -7,7 +7,10 @@ use crate::{
     error::errors::{SalObjError, SalObjResult},
     sal_info::SalInfo,
     topics::{base_topic::BaseTopic, read_topic::ReadTopic, write_topic::WriteTopic},
-    utils::{command_ack::CommandAck, types::{WriteTopicResult, ControllerCallbackFunc}},
+    utils::{
+        command_ack::CommandAck,
+        types::{ControllerCallbackFunc, WriteTopicResult},
+    },
 };
 
 pub struct ControllerCommand {
@@ -41,10 +44,7 @@ impl ControllerCommand {
         self.command_type as i64
     }
 
-    pub fn set_callback(
-        &mut self,
-        callback: ControllerCallbackFunc,
-    ) {
+    pub fn set_callback(&mut self, callback: ControllerCallbackFunc) {
         self.callback = callback
     }
 

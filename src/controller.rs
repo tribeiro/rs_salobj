@@ -158,5 +158,4 @@ mod tests {
 
         assert!(controller.is_ok())
     }
-
 }

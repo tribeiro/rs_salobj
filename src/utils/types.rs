@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use apache_avro::types::Value;
-use std::pin::Pin;
+use std::collections::HashMap;
 use std::future::Future;
+use std::pin::Pin;
 
 use crate::{
     error::errors::SalObjError,
