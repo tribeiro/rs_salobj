@@ -209,6 +209,26 @@ impl TopicInfo {
                 ),
             ),
             (
+                String::from("private_efdStamp"),
+                field_info::FieldInfo::new(
+                    "private_efdStamp",
+                    "double",
+                    1,
+                    "second",
+                    "UTC time for EFD timestamp. An integer (the number of leap seconds) different from private_sndStamp.",
+                ),
+            ),
+            (
+                String::from("private_kafkaStamp"),
+                field_info::FieldInfo::new(
+                    "private_kafkaStamp",
+                    "double",
+                    1,
+                    "second",
+                    "TAI time at which the Kafka message was created.",
+                ),
+            ),
+            (
                 String::from("private_seqNum"),
                 field_info::FieldInfo::new(
                     "private_seqNum",
@@ -226,6 +246,16 @@ impl TopicInfo {
                     1,
                     "unitless",
                     "Identity of publisher: SAL component name for a CSC or user@host for a user",
+                ),
+            ),
+            (
+                String::from("private_revCode"),
+                field_info::FieldInfo::new(
+                    "private_revCode",
+                    "string",
+                    1,
+                    "unitless",
+                    "Revision hashcode",
                 ),
             ),
             (
@@ -352,8 +382,11 @@ mod tests {
             String::from("salIndex"),
             String::from("private_sndStamp"),
             String::from("private_rcvStamp"),
+            String::from("private_efdStamp"),
+            String::from("private_kafkaStamp"),
             String::from("private_seqNum"),
             String::from("private_identity"),
+            String::from("private_revCode"),
             String::from("private_origin"),
         ]);
 
