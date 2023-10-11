@@ -61,6 +61,9 @@ mod tests {
         topic_record.put("private_sndStamp", Value::Double(1.234));
         topic_record.put("private_origin", Value::Long(123));
         topic_record.put("private_identity", Value::String("unit@test".to_string()));
+        topic_record.put("private_efdStamp", Value::Double(1.234));
+        topic_record.put("private_kafkaStamp", Value::Double(1.234));
+        topic_record.put("private_revCode", Value::String("xyz".to_string()));
         topic_record.put("private_seqNum", Value::Long(321));
         topic_record.put("private_rcvStamp", Value::Double(4.321));
         topic_record.put("salIndex", Value::Long(1));
