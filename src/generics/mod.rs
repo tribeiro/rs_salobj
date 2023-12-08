@@ -29,6 +29,7 @@
 //! }
 //! ```
 
+pub mod ackcmd;
 pub mod auth_list;
 pub mod configuration_applied;
 pub mod configurations_available;
