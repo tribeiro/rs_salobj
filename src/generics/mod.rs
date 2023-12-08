@@ -38,6 +38,7 @@ pub mod empty_topic;
 pub mod enable;
 pub mod enter_control;
 pub mod error_code;
+pub mod exit_control;
 pub mod heartbeat;
 pub mod large_file_object_available;
 pub mod log_level;
