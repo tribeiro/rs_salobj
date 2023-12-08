@@ -100,6 +100,8 @@ pub struct SalInfo<'a> {
     decoder: AvroDecoder<'a>,
 }
 
+unsafe impl<'a> Send for SalInfo<'a> {}
+
 impl<'a> SalInfo<'a> {
     /// Create a new instance of `SalInfo`.
     pub fn new(name: &str, index: isize) -> SalObjResult<SalInfo<'a>> {
