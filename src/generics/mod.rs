@@ -33,6 +33,7 @@ pub mod auth_list;
 pub mod configuration_applied;
 pub mod configurations_available;
 pub mod disable;
+pub mod empty_topic;
 pub mod enable;
 pub mod enter_control;
 pub mod error_code;
