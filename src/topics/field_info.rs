@@ -24,6 +24,7 @@ pub enum SalType {
 }
 
 /// Avro Schema field.
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 pub struct AvroSchemaField {
     name: String,
@@ -45,10 +46,10 @@ impl Serialize for AvroSchemaField {
         avro_schema_field.serialize_field("name", &self.name)?;
         if self.scalar {
             avro_schema_field.serialize_field("type", &self.avro_type.get("items"))?;
-            avro_schema_field.serialize_field("default", &self.default[0])?;
+            // avro_schema_field.serialize_field("default", &self.default[0])?;
         } else {
             avro_schema_field.serialize_field("type", &self.avro_type)?;
-            avro_schema_field.serialize_field("default", &self.default)?;
+            // avro_schema_field.serialize_field("default", &self.default)?;
         }
         avro_schema_field.serialize_field("description", &self.description)?;
         avro_schema_field.serialize_field("units", &self.units)?;
