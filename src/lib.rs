@@ -26,6 +26,7 @@ extern crate serde_derive;
 
 mod component_info;
 pub mod controller;
+pub mod csc;
 pub mod domain;
 mod error;
 pub mod generics;
