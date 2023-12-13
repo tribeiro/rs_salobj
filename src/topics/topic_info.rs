@@ -148,7 +148,7 @@ impl TopicInfo {
         AvroSchema {
             avro_message_type: "record".to_owned(),
             name: self.topic_name.to_owned(),
-            namespace: format!("lsst.sal.kafka-{component_name}"),
+            namespace: format!("lsst.sal.{component_name}"),
             fields: self
                 .fields
                 .values()
