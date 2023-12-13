@@ -13,14 +13,17 @@ use crate::{
     },
     utils::types::{ControllerCommandSet, WriteTopicSet},
 };
-use apache_avro::{to_value, types::Value};
+use apache_avro::{
+    to_value,
+    types::{Record, Value},
+};
 use serde::Serialize;
 
 pub struct Controller<'a> {
     sal_info: sal_info::SalInfo<'a>,
-    commands: ControllerCommandSet,
-    events: WriteTopicSet,
-    telemetry: WriteTopicSet,
+    pub commands: ControllerCommandSet<'a>,
+    pub events: WriteTopicSet<'a>,
+    pub telemetry: WriteTopicSet<'a>,
 }
 
 impl<'a> Controller<'a> {
@@ -79,6 +82,29 @@ impl<'a> Controller<'a> {
         })
     }
 
+    pub fn get_record<T>(&self, topic_name: &str, data: T) -> SalObjResult<Record>
+    where
+        T: BaseSALTopic + Serialize,
+    {
+        if let Ok(data_value) = to_value(data) {
+            if let Value::Record(data_record) = data_value {
+                if let Some(schema) = self.sal_info.get_topic_schema(topic_name) {
+                    let mut record = WriteTopic::make_data_type(schema).unwrap();
+                    for (field, value) in data_record.into_iter() {
+                        record.put(&field, value);
+                    }
+                    Ok(record)
+                } else {
+                    Err(SalObjError::new("Could not get topic schema."))
+                }
+            } else {
+                Err(SalObjError::new("Failed to convert value to record."))
+            }
+        } else {
+            Err(SalObjError::new("Failed to serialize data."))
+        }
+    }
+
     pub async fn write_telemetry<T>(&mut self, topic_name: &str, data: T) -> SalObjResult<i64>
     where
         T: BaseSALTopic + Serialize,
@@ -91,7 +117,7 @@ impl<'a> Controller<'a> {
                         for (field, value) in data_record.into_iter() {
                             record.put(&field, value);
                         }
-                        writer.write(&mut record, &self.sal_info).await
+                        writer.write(&mut record).await
                     } else {
                         Err(SalObjError::new("Could not get topic schema."))
                     }
@@ -108,7 +134,7 @@ impl<'a> Controller<'a> {
         }
     }
 
-    pub async fn write_event<T>(&mut self, topic_name: &str, data: T) -> SalObjResult<i64>
+    pub async fn write_event<T>(&mut self, topic_name: &str, data: &T) -> SalObjResult<i64>
     where
         T: BaseSALTopic + Serialize,
     {
@@ -120,7 +146,7 @@ impl<'a> Controller<'a> {
                         for (field, value) in data_record.into_iter() {
                             record.put(&field, value);
                         }
-                        writer.write(&mut record, &self.sal_info).await
+                        writer.write(&mut record).await
                     } else {
                         Err(SalObjError::new("Could not get topic schema."))
                     }
@@ -137,9 +163,9 @@ impl<'a> Controller<'a> {
         }
     }
 
-    pub async fn process_command(&mut self, command_name: &str) -> SalObjResult<usize> {
+    pub async fn process_command(&mut self, command_name: &str) -> SalObjResult<Value> {
         if let Some(command) = self.commands.get_mut(command_name) {
-            command.process_command(&self.sal_info).await
+            command.process_command().await
         } else {
             Err(SalObjError::new(&format!("No command {command_name}.")))
         }

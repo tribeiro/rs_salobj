@@ -2,7 +2,7 @@ use crate::{topics::base_sal_topic::BaseSALTopic, utils::xml_utils::get_default_
 use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
 
 #[add_sal_topic_fields]
-#[derive(Debug, Deserialize, BaseSALTopic)]
+#[derive(Debug, Deserialize, Default, BaseSALTopic)]
 pub struct Enable {}
 
 #[cfg(test)]

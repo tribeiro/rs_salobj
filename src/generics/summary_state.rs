@@ -4,7 +4,7 @@ use crate::{
 use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
 
 #[add_sal_topic_fields]
-#[derive(Debug, Deserialize, BaseSALTopic)]
+#[derive(Debug, Default, Deserialize, Serialize, BaseSALTopic)]
 pub struct SummaryState {
     #[serde(rename = "summaryState")]
     summary_state: i32,
@@ -17,6 +17,10 @@ impl SummaryState {
 
     pub fn get_summary_state(&self) -> State {
         State::from_summary_state(self)
+    }
+
+    pub fn set_summary_state(&mut self, value: State) {
+        self.summary_state = value.to::<i32>().unwrap_or(0);
     }
 }
 

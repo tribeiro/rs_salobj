@@ -132,6 +132,18 @@ impl State {
             State::Invalid
         }
     }
+
+    /// Cast the primitive integer value of a `State` enumeration.
+    pub fn to<T: PrimInt>(&self) -> Option<T> {
+        match self {
+            State::Disabled => cast(1),
+            State::Enabled => cast(2),
+            State::Fault => cast(3),
+            State::Offline => cast(4),
+            State::Standby => cast(5),
+            State::Invalid => None,
+        }
+    }
 }
 
 impl FromStr for State {
@@ -240,5 +252,47 @@ mod tests {
         let state = State::from(5);
 
         assert_eq!(state, State::Standby)
+    }
+
+    #[test]
+    fn test_number_from_state_invalid() {
+        let invalid: Option<u8> = State::to(&State::Invalid);
+
+        assert_eq!(invalid, None)
+    }
+
+    #[test]
+    fn test_number_from_state_disabled() {
+        let state: u8 = State::to(&State::Disabled).unwrap();
+
+        assert_eq!(state, 1)
+    }
+
+    #[test]
+    fn test_number_from_state_enabled() {
+        let state: u8 = State::to(&State::Enabled).unwrap();
+
+        assert_eq!(state, 2)
+    }
+
+    #[test]
+    fn test_number_from_state_fault() {
+        let state: u8 = State::to(&State::Fault).unwrap();
+
+        assert_eq!(state, 3)
+    }
+
+    #[test]
+    fn test_number_from_state_offline() {
+        let state: u8 = State::to(&State::Offline).unwrap();
+
+        assert_eq!(state, 4)
+    }
+
+    #[test]
+    fn test_number_from_state_standby() {
+        let state: u8 = State::to(&State::Standby).unwrap();
+
+        assert_eq!(state, 5)
     }
 }

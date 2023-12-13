@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::generics::ackcmd::AckCmd;
 use crate::sal_enums::{self, SalRetCode};
 use crate::topics::base_sal_topic::BaseSALTopic;
 
@@ -15,6 +16,7 @@ pub struct CommandAck {
     identity: String,
     /// origin of the component that issued the command.
     origin: i64,
+    cmdtype: i64,
     /// Estimated timeout for the command.
     timeout: std::time::Duration,
     /// Sequence number of the command issued.
@@ -35,6 +37,7 @@ impl Default for CommandAck {
             result: "".to_owned(),
             identity: "".to_owned(),
             origin: 0,
+            cmdtype: 0,
             timeout: std::time::Duration::from_secs(0),
             seq_num: 0,
         }
@@ -59,7 +62,20 @@ impl CommandAck {
             origin,
             timeout,
             seq_num,
+            ..Default::default()
         }
+    }
+
+    pub fn to_ackcmd(&self) -> AckCmd {
+        AckCmd::new(
+            self.get_ack(),
+            self.get_error(),
+            self.get_result(),
+            self.get_identity(),
+            self.get_origin(),
+            self.get_cmdtype(),
+            self.get_timeout().as_secs_f64(),
+        )
     }
 
     pub fn invalid_command(result: &str) -> CommandAck {
@@ -81,6 +97,7 @@ impl CommandAck {
             origin: cmd.get_private_origin(),
             timeout,
             seq_num: cmd.get_private_seq_num(),
+            ..Default::default()
         }
     }
 
@@ -96,6 +113,7 @@ impl CommandAck {
             origin: cmd.get_private_origin(),
             timeout: std::time::Duration::new(0, 0),
             seq_num: cmd.get_private_seq_num(),
+            ..Default::default()
         }
     }
 
@@ -111,6 +129,7 @@ impl CommandAck {
             origin: cmd.get_private_origin(),
             timeout: std::time::Duration::new(0, 0),
             seq_num: cmd.get_private_seq_num(),
+            ..Default::default()
         }
     }
 
@@ -134,6 +153,10 @@ impl CommandAck {
         self.origin
     }
 
+    pub fn get_cmdtype(&self) -> i64 {
+        self.cmdtype
+    }
+
     pub fn get_timeout(&self) -> std::time::Duration {
         self.timeout
     }
@@ -146,8 +169,12 @@ impl CommandAck {
         self.ack.clone() as i64
     }
 
-    pub fn get_error(&self) -> isize {
-        self.error
+    pub fn get_ack_enum(&self) -> &SalRetCode {
+        &self.ack
+    }
+
+    pub fn get_error(&self) -> i64 {
+        self.error as i64
     }
 
     pub fn get_result(&self) -> &str {

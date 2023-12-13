@@ -1,0 +1,13 @@
+[package]
+name = "handle_command"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+convert_case = "0.6.0"
+proc-macro2 = "1.0.69"
+quote = "1.0.28"
+syn = "2.0.18"
+
+[lib]
+proc-macro = true

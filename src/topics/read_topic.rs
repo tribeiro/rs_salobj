@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use crate::{
     domain::Domain,
     error::errors::{SalObjError, SalObjResult},
@@ -9,16 +11,17 @@ use kafka::{
     consumer::{Consumer, FetchOffset, GroupOffsetStorage},
     error::Result as KafkaResult,
 };
+use schema_registry_converter::async_impl::avro::AvroDecoder;
 use std::collections::VecDeque;
 use tokio::time::sleep;
 
 // Default value for the ``queue_len`` constructor argument.
 const DEFAULT_QUEUE_LEN: usize = 100;
 
-const POOL_WAIT_TIME: std::time::Duration = std::time::Duration::from_millis(10);
+const POOL_WAIT_TIME: std::time::Duration = std::time::Duration::from_micros(50);
 
 /// Base struct for reading a topic.
-pub struct ReadTopic {
+pub struct ReadTopic<'a> {
     /// The name of the topic.
     topic_name: String,
     /// The name of the topic in the data cloud.
@@ -41,17 +44,18 @@ pub struct ReadTopic {
     data_queue: VecDeque<Value>,
     /// Topic consumer.
     consumer: KafkaResult<Consumer>,
+    decoder: AvroDecoder<'a>,
 }
 
-impl BaseTopic for ReadTopic {}
+impl<'a> BaseTopic for ReadTopic<'a> {}
 
-impl ReadTopic {
+impl<'a> ReadTopic<'a> {
     pub fn new(
         topic_name: &str,
         sal_info: &SalInfo,
         domain: &Domain,
         max_history: usize,
-    ) -> ReadTopic {
+    ) -> ReadTopic<'a> {
         sal_info.assert_is_valid_topic(topic_name);
 
         if sal_info.is_indexed() && sal_info.get_index() == 0 && max_history > 1 {
@@ -75,9 +79,11 @@ impl ReadTopic {
                 .with_topic(sal_info.make_schema_registry_topic_name(topic_name))
                 .with_fallback_offset(fetch_offset)
                 .with_group(format!("{}", domain.get_origin()))
+                .with_fetch_max_wait_time(Duration::from_millis(1))
                 .with_offset_storage(GroupOffsetStorage::Kafka)
                 .create(),
             current_data: None,
+            decoder: SalInfo::make_decoder(),
         }
     }
 
@@ -125,16 +131,11 @@ impl ReadTopic {
     /// This is a synchronous variant of `pop_next` that does not wait for a new
     /// message. This method affects which message will be returned by `next`,
     /// but not which message will be returned by `aget` or `get`.
-    pub async fn pop_back<'b>(
-        &mut self,
-        flush: bool,
-        timeout: std::time::Duration,
-        sal_info: &SalInfo<'b>,
-    ) -> Option<Value> {
+    pub async fn pop_back(&mut self, flush: bool, timeout: std::time::Duration) -> Option<Value> {
         if flush {
             self.flush();
         }
-        if let Err(error) = self.pool(timeout, sal_info).await {
+        if let Err(error) = self.pool(timeout).await {
             log::warn!("Error pooling new data: {error}.");
         }
         self.data_queue.pop_back()
@@ -146,18 +147,23 @@ impl ReadTopic {
     ///
     /// This method affects the data returned by `get_oldest`, but not the data
     /// returned by `aget` or `get`.
-    pub async fn pop_front<'b>(
-        &mut self,
-        flush: bool,
-        timeout: std::time::Duration,
-        sal_info: &SalInfo<'b>,
-    ) -> Option<Value> {
+    pub async fn pop_front(&mut self, flush: bool, timeout: std::time::Duration) -> Option<Value> {
         if flush {
             self.flush();
         }
         if self.data_queue.is_empty() {
-            if let Err(error) = self.pool(timeout, sal_info).await {
-                log::warn!("Error pooling new data: {error}.");
+            let start = Instant::now();
+            match self.pool(timeout).await {
+                Ok(n_messages) => {
+                    let duration = start.elapsed();
+                    log::trace!(
+                        "pop_front {} took {duration:?} to pool data. Got {n_messages} messages.",
+                        self.topic_name
+                    );
+                }
+                Err(error) => {
+                    log::warn!("Error pooling new data: {error}.");
+                }
             }
         }
         self.data_queue.pop_front()
@@ -172,11 +178,7 @@ impl ReadTopic {
     /// the backlog is large it may take some tike to finish. A future
     /// implementation will check the message offset and reset it to the head
     /// of the data queue, avoiding unnecessary reads.
-    async fn pool<'b>(
-        &mut self,
-        timeout: std::time::Duration,
-        sal_info: &SalInfo<'b>,
-    ) -> SalObjResult<usize> {
+    async fn pool(&mut self, timeout: std::time::Duration) -> SalObjResult<usize> {
         match &mut self.consumer {
             Ok(consumer) => {
                 let timer_task = tokio::spawn(async move {
@@ -186,13 +188,26 @@ impl ReadTopic {
                 let mut n_messages = 0;
 
                 while !timer_task.is_finished() {
-                    let mut got_data = false;
+                    let start = Instant::now();
                     match consumer.poll() {
                         Ok(messages) => {
+                            let duration = start.elapsed();
+                            log::trace!(
+                                "pool {} took {duration:?} to consume data.",
+                                self.topic_name
+                            );
+
+                            let no_data = messages.is_empty();
                             for ms in messages.iter() {
                                 for m in ms.messages() {
-                                    match sal_info.decode(Some(m.value)).await {
+                                    let start = Instant::now();
+                                    match self.decoder.decode(Some(m.value)).await {
                                         Ok(data) => {
+                                            let duration = start.elapsed();
+                                            log::trace!(
+                                                "pool {} took {duration:?} to decode data.",
+                                                self.topic_name
+                                            );
                                             let data_value = data.value;
                                             self.current_data = Some(data_value.clone());
                                             self.data_queue.push_back(data_value);
@@ -201,12 +216,11 @@ impl ReadTopic {
                                         Err(error) => return Err(SalObjError::from_error(error)),
                                     };
                                 }
-                                got_data = true;
                                 if let Err(error) = consumer.consume_messageset(ms) {
                                     return Err(SalObjError::from_error(error));
                                 }
                             }
-                            if !got_data && n_messages > 0 {
+                            if n_messages > 0 && no_data {
                                 timer_task.abort();
                                 return Ok(n_messages);
                             }

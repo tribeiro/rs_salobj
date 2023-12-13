@@ -13,32 +13,31 @@ use std::{collections::HashMap, time::Duration};
 
 pub type AckCmdResult = std::result::Result<CommandAck, CommandAck>;
 
-pub struct RemoteCommand {
-    command_writer: WriteTopic,
-    ack_reader: ReadTopic,
+pub struct RemoteCommand<'a> {
+    command_writer: WriteTopic<'a>,
+    ack_reader: ReadTopic<'a>,
 }
 
-impl RemoteCommand {
-    pub fn new(command_name: &str, domain: &Domain, sal_info: &SalInfo) -> RemoteCommand {
+impl<'a> RemoteCommand<'a> {
+    pub fn new(command_name: &str, domain: &Domain, sal_info: &SalInfo) -> RemoteCommand<'a> {
         RemoteCommand {
             command_writer: WriteTopic::new(command_name, sal_info, domain),
             ack_reader: ReadTopic::new("ackcmd", sal_info, domain, 0),
         }
     }
 
-    pub async fn run<'a, 'b>(
+    pub async fn run<'b>(
         &mut self,
         parameters: &mut Record<'b>,
         timeout: Duration,
         wait_done: bool,
-        sal_info: &SalInfo<'a>,
     ) -> AckCmdResult {
         let identity = self.command_writer.get_identity();
         let origin = self.command_writer.get_origin();
-        match self.command_writer.write(parameters, sal_info).await {
+        self.ack_reader.flush();
+        match self.command_writer.write(parameters).await {
             Ok(seq_num) => loop {
-                if let Some(Value::Record(ack_cmd)) =
-                    self.ack_reader.pop_back(false, timeout, sal_info).await
+                if let Some(Value::Record(ack_cmd)) = self.ack_reader.pop_back(false, timeout).await
                 {
                     let data_dict: HashMap<String, Value> = ack_cmd
                         .into_iter()
@@ -55,7 +54,7 @@ impl RemoteCommand {
                     {
                         let ack = sal_enums::get_ackcmd_code(data_dict.get("ack")).clone();
                         let error: isize = match data_dict.get("error") {
-                            Some(Value::Int(error)) => *error as isize,
+                            Some(Value::Long(error)) => *error as isize,
                             _ => 0,
                         };
                         let result = match data_dict.get("result") {

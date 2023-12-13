@@ -1,37 +1,38 @@
 //! Handles reading command topic and writing acknowledgements.
 
 use apache_avro::types::Value;
+use log;
+use std::time::Instant;
 
 use crate::{
     domain::Domain,
     error::errors::{SalObjError, SalObjResult},
     sal_info::SalInfo,
-    topics::{base_topic::BaseTopic, read_topic::ReadTopic, write_topic::WriteTopic},
-    utils::{
-        command_ack::CommandAck,
-        types::{ControllerCallbackFunc, WriteTopicResult},
-    },
+    topics::{base_sal_topic::BaseSALTopic, read_topic::ReadTopic, write_topic::WriteTopic},
+    utils::{command_ack::CommandAck, types::WriteTopicResult},
 };
 
-pub struct ControllerCommand {
-    command_reader: ReadTopic,
-    ack_writer: WriteTopic,
+pub struct ControllerCommand<'a> {
+    command_name: String,
+    command_reader: ReadTopic<'a>,
+    ack_writer: WriteTopic<'a>,
     command_type: usize,
-    callback: ControllerCallbackFunc,
 }
 
-impl ControllerCommand {
+unsafe impl<'a> Send for ControllerCommand<'a> {}
+
+impl<'a> ControllerCommand<'a> {
     pub fn new(
         command_name: &str,
         domain: &Domain,
         sal_info: &SalInfo,
-    ) -> SalObjResult<ControllerCommand> {
+    ) -> SalObjResult<ControllerCommand<'a>> {
         if let Some(command_type) = sal_info.get_command_type(command_name) {
             Ok(ControllerCommand {
+                command_name: command_name.to_owned(),
                 command_reader: ReadTopic::new(command_name, sal_info, domain, 0),
                 ack_writer: WriteTopic::new("ackcmd", sal_info, domain),
                 command_type,
-                callback: None,
             })
         } else {
             Err(SalObjError::new(&format!(
@@ -40,50 +41,34 @@ impl ControllerCommand {
         }
     }
 
-    fn get_command_type(&self) -> i64 {
+    pub fn get_command_type(&self) -> i64 {
         self.command_type as i64
     }
 
-    pub fn set_callback(&mut self, callback: ControllerCallbackFunc) {
-        self.callback = callback
-    }
+    pub async fn process_command(&mut self) -> SalObjResult<Value> {
+        let start = Instant::now();
 
-    pub async fn process_command<'si>(&mut self, sal_info: &SalInfo<'si>) -> SalObjResult<usize> {
+        log::trace!("process_command {} start", self.command_name);
         if let Some(cmd_data) = self
             .command_reader
-            .pop_front(false, std::time::Duration::from_millis(100), sal_info)
+            .pop_front(false, std::time::Duration::from_millis(100))
             .await
         {
-            if let Some(callback) = &self.callback {
-                let future = callback(cmd_data);
-                future.await;
-                Ok(1)
-            } else {
-                println!("callback not set");
-                Ok(0)
-            }
+            let duration = start.elapsed();
+            log::trace!(
+                "process_command {} finished took {duration:?} to take data.",
+                self.command_name
+            );
+            Ok(cmd_data)
         } else {
-            Ok(0)
+            log::trace!("process_command {} finished no data.", self.command_name);
+            Err(SalObjError::new("No command received."))
         }
     }
 
-    pub async fn ack<'si>(
-        &mut self,
-        ackcmd: CommandAck,
-        sal_info: &SalInfo<'si>,
-    ) -> WriteTopicResult {
-        let schema = sal_info.get_topic_schema("ackcmd").unwrap().clone();
-        let mut ackcmd_record = WriteTopic::make_data_type(&schema).unwrap();
-
-        ackcmd_record.put("private_seqNum", Value::Long(ackcmd.get_seq_num()));
-        ackcmd_record.put("origin", Value::Long(ackcmd.get_origin()));
-        ackcmd_record.put("identity", Value::String(ackcmd.get_identity().to_owned()));
-        ackcmd_record.put("cmdtype", Value::Long(self.get_command_type()));
-        ackcmd_record.put("ack", Value::Long(ackcmd.get_ack()));
-        ackcmd_record.put("error", Value::Long(ackcmd.get_error() as i64));
-        ackcmd_record.put("result", Value::String(ackcmd.get_result().to_owned()));
-        ackcmd_record.put("timeout", Value::Double(ackcmd.get_timeout().as_secs_f64()));
-
-        self.ack_writer.write(&mut ackcmd_record, sal_info).await
+    pub async fn ack<'si>(&mut self, command_ack: CommandAck) -> WriteTopicResult {
+        let mut ackcmd = command_ack.to_ackcmd();
+        ackcmd.set_private_seq_num(command_ack.get_seq_num());
+        self.ack_writer.write_typed(&mut ackcmd).await
     }
 }
