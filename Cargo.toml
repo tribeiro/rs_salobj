@@ -22,6 +22,7 @@ whoami = "^1.2"
 log = "0.4.17"
 simple_logger = "4.0.0"
 md5 = "0.7.0"
+rand = "0.8.5"
 
 [dev-dependencies]
 num-bigint = "0.4"
