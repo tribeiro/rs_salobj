@@ -39,6 +39,33 @@ fn impl_base_topic_trait(ast: DeriveInput) -> TokenStream {
             fn get_sal_index(&self) -> i64 {
                 self.sal_index
             }
+            fn set_private_snd_stamp(&mut self, value: f64) {
+                self.private_snd_stamp = value;
+            }
+            fn set_private_efd_stamp(&mut self, value: f64) {
+                self.private_efd_stamp = value;
+            }
+            fn set_private_kafka_stamp(&mut self, value: f64) {
+                self.private_kafka_stamp = value;
+            }
+            fn set_private_origin(&mut self, value: i64) {
+                self.private_origin = value;
+            }
+            fn set_private_identity(&mut self, value: &str) {
+                self.private_identity = value.to_owned();
+            }
+            fn set_private_rev_code(&mut self, value: &str) {
+                self.private_rev_code = value.to_owned();
+            }
+            fn set_private_seq_num(&mut self, value: i64) {
+                self.private_seq_num = value;
+            }
+            fn set_private_rcv_stamp(&mut self, value: f64) {
+                self.private_rcv_stamp = value;
+            }
+            fn set_sal_index(&mut self, value: i64) {
+                self.sal_index = value;
+            }
         }
     )
     .into()
@@ -83,6 +110,14 @@ pub fn add_sal_topic_fields(_args: TokenStream, input: TokenStream) -> TokenStre
                             .parse2(quote! {
                                 #[serde(rename = "private_rcvStamp")]
                                 private_rcv_stamp: f64
+                            })
+                            .unwrap(),
+                    );
+                    fields.named.push(
+                        syn::Field::parse_named
+                            .parse2(quote! {
+                                #[serde(rename = "private_sndStamp")]
+                                private_snd_stamp: f64
                             })
                             .unwrap(),
                     );
