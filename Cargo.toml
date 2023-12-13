@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 apache-avro = "0.14.0"
 base_topic_derive = {path = "base_topic_derive"}
+handle_command = {path = "handle_command"}
 chrono = "0.4"
 clap = { version = "4.1.6", features = ["derive"] }
 kafka = "0.9"
