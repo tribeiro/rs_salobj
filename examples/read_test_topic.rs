@@ -40,9 +40,8 @@ async fn main() {
         println!("Iteration {i}...");
         println!("==> reading data queue!");
         loop {
-            if let Some(Value::Record(new_data)) = topic_reader
-                .pop_back(false, Duration::from_secs(1), &sal_info)
-                .await
+            if let Some(Value::Record(new_data)) =
+                topic_reader.pop_back(false, Duration::from_secs(1)).await
             {
                 let data_dict: HashMap<String, Value> = new_data
                     .into_iter()
