@@ -25,14 +25,14 @@ use std::time::Duration;
 ///
 /// If a SAL component listens to or commands other SAL components
 /// then it will have one Remote for each such component.
-pub struct Remote<'a> {
+pub struct Remote<'a, 'b> {
     sal_info: sal_info::SalInfo<'a>,
-    commands: RemoteCommandSet,
-    events: ReadTopicSet,
-    telemetry: ReadTopicSet,
+    commands: RemoteCommandSet<'b>,
+    events: ReadTopicSet<'b>,
+    telemetry: ReadTopicSet<'b>,
 }
 
-impl<'a> Remote<'a> {
+impl<'a, 'b> Remote<'a, 'b> {
     pub fn new(
         domain: &mut domain::Domain,
         name: &str,
@@ -41,7 +41,7 @@ impl<'a> Remote<'a> {
         include: Vec<String>,
         exclude: Vec<String>,
         evt_max_history: usize,
-    ) -> SalObjResult<Remote<'a>> {
+    ) -> SalObjResult<Remote<'a, 'b>> {
         if !include.is_empty() && !exclude.is_empty() {
             panic!("include_only and exclude can not both have elements.");
         } else if !include.is_empty() || !exclude.is_empty() {
@@ -106,7 +106,7 @@ impl<'a> Remote<'a> {
         domain: &mut domain::Domain,
         name: &str,
         index: isize,
-    ) -> SalObjResult<Remote<'a>> {
+    ) -> SalObjResult<Remote<'a, 'b>> {
         Remote::new(domain, name, index, false, Vec::new(), Vec::new(), 1)
     }
 
@@ -124,10 +124,10 @@ impl<'a> Remote<'a> {
         self.sal_info.get_index()
     }
 
-    pub async fn run_command<'b>(
+    pub async fn run_command<'c>(
         &mut self,
         command_name: String,
-        parameters: &mut Record<'b>,
+        parameters: &mut Record<'c>,
         timeout: Duration,
         wait_done: bool,
     ) -> remote_command::AckCmdResult {
@@ -138,9 +138,7 @@ impl<'a> Remote<'a> {
         }
 
         if let Some(command) = self.commands.get_mut(&command_name) {
-            command
-                .run(parameters, timeout, wait_done, &self.sal_info)
-                .await
+            command.run(parameters, timeout, wait_done).await
         } else {
             Err(CommandAck::invalid_command(&format!(
                 "Command {command_name} not in the list of commands."
@@ -155,7 +153,7 @@ impl<'a> Remote<'a> {
         timeout: Duration,
     ) -> std::result::Result<Option<Value>, ()> {
         if let Some(event_reader) = self.events.get_mut(event_name) {
-            Ok(event_reader.pop_front(flush, timeout, &self.sal_info).await)
+            Ok(event_reader.pop_front(flush, timeout).await)
         } else {
             Err(())
         }
@@ -168,7 +166,7 @@ impl<'a> Remote<'a> {
         timeout: Duration,
     ) -> std::result::Result<Option<Value>, ()> {
         if let Some(event_reader) = self.events.get_mut(event_name) {
-            Ok(event_reader.pop_back(flush, timeout, &self.sal_info).await)
+            Ok(event_reader.pop_back(flush, timeout).await)
         } else {
             Err(())
         }
@@ -181,9 +179,7 @@ impl<'a> Remote<'a> {
         timeout: Duration,
     ) -> std::result::Result<Option<Value>, ()> {
         if let Some(telemetry_reader) = self.telemetry.get_mut(telemetry_name) {
-            Ok(telemetry_reader
-                .pop_front(flush, timeout, &self.sal_info)
-                .await)
+            Ok(telemetry_reader.pop_front(flush, timeout).await)
         } else {
             Err(())
         }
@@ -196,9 +192,7 @@ impl<'a> Remote<'a> {
         timeout: Duration,
     ) -> std::result::Result<Option<Value>, ()> {
         if let Some(telemetry_reader) = self.telemetry.get_mut(telemetry_name) {
-            Ok(telemetry_reader
-                .pop_back(flush, timeout, &self.sal_info)
-                .await)
+            Ok(telemetry_reader.pop_back(flush, timeout).await)
         } else {
             Err(())
         }
