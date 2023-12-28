@@ -16,6 +16,7 @@ use std::collections::{HashMap, HashSet};
 
 use apache_avro::{from_value, types::Value};
 use handle_command::handle_command;
+
 use tokio::{
     sync::{mpsc, watch},
     task,
@@ -25,7 +26,7 @@ use tokio::{
 use crate::{
     controller::Controller,
     csc::{
-        base_csc::BaseCSC,
+        base_csc::{BaseCSC, HEARTBEAT_TIME},
         test_csc::topics::{arrays::Arrays, scalars::Scalars, telemetry::TestTelemetry},
     },
     domain::Domain,
@@ -111,11 +112,11 @@ impl<'a> TestCSC<'a> {
         summary_state.set_summary_state(self.summary_state);
         if let Err(err) = self
             .controller
-            .write_event("logevent_summaryState", &summary_state)
+            .write_event("logevent_summaryState", &mut summary_state)
             .await
         {
             log::error!("Failed to write summary state: {err:?}");
-            return ();
+            return;
         };
 
         let sal_info = SalInfo::new("Test", self.index).unwrap();
@@ -141,7 +142,7 @@ impl<'a> TestCSC<'a> {
                     log::error!("Failed to write heartbeat data {write_res:?}.");
                     break;
                 }
-                sleep(Duration::from_secs(1)).await;
+                sleep(HEARTBEAT_TIME).await;
             }
         });
         self.heartbeat_task = Some(heartbeat_task);
@@ -406,7 +407,8 @@ impl<'a> TestCSC<'a> {
         data: &CmdData,
         ack_channel: mpsc::Sender<CommandAck>,
     ) -> SalObjResult<CommandAckResult> {
-        if let Ok(scalars) = from_value::<Scalars>(&data.data) {
+        if let Ok(mut scalars) = from_value::<Scalars>(&data.data) {
+            log::debug!("setScalars received: {scalars:?}");
             let current_state = self.get_current_state();
             if current_state != State::Enabled {
                 return Ok((
@@ -418,23 +420,30 @@ impl<'a> TestCSC<'a> {
                     ack_channel,
                 ));
             }
-            if let Ok(_) = self
+            let original_scalars = scalars.clone();
+            if self
                 .controller
-                .write_event("logevent_scalars", &scalars)
+                .write_event("logevent_scalars", &mut scalars)
                 .await
+                .is_ok()
             {
+                log::debug!("setScalars sent event, updating telemetry.");
                 let _ = self.telemetry_sender.send(TelemetryPayload {
                     name: "scalars".to_owned(),
                     data: TestTelemetry::Scalars(scalars.clone()),
                 });
-                Ok((CommandAck::make_complete(scalars), ack_channel))
+                log::debug!("setScalars telemetry sent, command completed.");
+
+                Ok((CommandAck::make_complete(original_scalars), ack_channel))
             } else {
+                log::debug!("setScalars command failed.");
                 Ok((
-                    CommandAck::make_failed(scalars, 1, "Failed to parse event data"),
+                    CommandAck::make_failed(original_scalars, 1, "Failed to parse event data"),
                     ack_channel,
                 ))
             }
         } else {
+            log::error!("Cannot parse data.");
             Err(SalObjError::new("Cannot parse data."))
         }
     }
@@ -448,7 +457,7 @@ impl<'a> TestCSC<'a> {
         ack_channel: mpsc::Sender<CommandAck>,
     ) -> SalObjResult<CommandAckResult> {
         match from_value::<Arrays>(&data.data) {
-            Ok(arrays) => {
+            Ok(mut arrays) => {
                 let current_state = self.get_current_state();
                 if current_state != State::Enabled {
                     return Ok((
@@ -460,21 +469,23 @@ impl<'a> TestCSC<'a> {
                         ack_channel,
                     ));
                 }
-                if let Ok(_) = self
+                let original_arrays = arrays.clone();
+                if self
                     .controller
-                    .write_event("logevent_arrays", &arrays)
+                    .write_event("logevent_arrays", &mut arrays)
                     .await
+                    .is_ok()
                 {
                     let _ = self.telemetry_sender.send(TelemetryPayload {
                         name: "arrays".to_owned(),
                         data: TestTelemetry::Arrays(arrays.clone()),
                     });
-                    return Ok((CommandAck::make_complete(arrays), ack_channel));
+                    Ok((CommandAck::make_complete(original_arrays), ack_channel))
                 } else {
-                    return Ok((
-                        CommandAck::make_failed(arrays, 1, "Failed to parse event data"),
+                    Ok((
+                        CommandAck::make_failed(original_arrays, 1, "Failed to parse event data"),
                         ack_channel,
-                    ));
+                    ))
                 }
             }
             Err(error) => {
@@ -558,7 +569,7 @@ impl<'a> TestCSC<'a> {
         summary_state.set_summary_state(self.summary_state);
         if let Err(err) = self
             .controller
-            .write_event("logevent_summaryState", &summary_state)
+            .write_event("logevent_summaryState", &mut summary_state)
             .await
         {
             return Err(SalObjError::new(&format!(
@@ -572,7 +583,7 @@ impl<'a> TestCSC<'a> {
     /// a command.
     ///
     /// This is used by the TestCSC::do_wait method to implement the command response.
-    async fn wait_and_ack(wait: Wait, ack_channel: mpsc::Sender<CommandAck>) -> () {
+    async fn wait_and_ack(wait: Wait, ack_channel: mpsc::Sender<CommandAck>) {
         let wait_time = Duration::from_secs(wait.duration as u64);
         sleep(wait_time).await;
         let _ = ack_channel.send(CommandAck::make_complete(wait)).await;

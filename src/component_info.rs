@@ -10,8 +10,8 @@
 
 use crate::{
     error::errors::SalObjResult,
-    sal_subsystem,
-    topics::topic_info::{self, AvroSchema, TopicInfo},
+    sal_subsystem::SALSubsystemInfo,
+    topics::topic_info::{self, TopicInfo},
     utils::xml_utils::convert_sal_name_to_topic_name,
 };
 use std::collections::HashMap;
@@ -22,8 +22,6 @@ extern crate serde_xml_rs;
 pub struct ComponentInfo {
     name: String,
     topic_subname: String,
-    description: String,
-    indexed: bool,
     /// Command acknowledgment topic definition.
     ack_cmd: topic_info::TopicInfo,
     /// Map with the commands definition. They key is the
@@ -35,12 +33,12 @@ pub struct ComponentInfo {
     /// Map with the telemetry definition. They key is the
     /// (topic name)[crate::sal_info].
     telemetry: HashMap<String, topic_info::TopicInfo>,
+    sal_subsystem_info: SALSubsystemInfo,
 }
 
 impl ComponentInfo {
     pub fn new(name: &str, topic_subname: &str) -> SalObjResult<ComponentInfo> {
-        let sal_subsystem_set = sal_subsystem::SALSubsystemSet::new()?;
-        let sal_subsystem_info = sal_subsystem_set.get_sal_subsystem_info(name)?;
+        let sal_subsystem_info = SALSubsystemInfo::new(name)?;
 
         let component_commands: HashMap<String, topic_info::TopicInfo> = sal_subsystem_info
             .get_commands(topic_subname)
@@ -63,16 +61,11 @@ impl ComponentInfo {
         Ok(ComponentInfo {
             name: String::from(name),
             topic_subname: String::from(topic_subname),
-            description: sal_subsystem_info.get_description(),
-            indexed: sal_subsystem_info.is_indexed(),
-            ack_cmd: topic_info::TopicInfo::get_ackcmd(
-                name,
-                topic_subname,
-                sal_subsystem_info.is_indexed(),
-            ),
+            ack_cmd: sal_subsystem_info.get_ackcmd(topic_subname)?,
             commands: component_commands,
             events: component_events,
             telemetry: component_telemetry,
+            sal_subsystem_info,
         })
     }
 
@@ -125,39 +118,43 @@ impl ComponentInfo {
     }
 
     pub fn get_description(&self) -> &str {
-        &self.description
+        ""
     }
 
     /// Is the component index?
     pub fn is_indexed(&self) -> bool {
-        self.indexed
+        self.sal_subsystem_info.is_indexed()
     }
 
-    /// Make avro schema for all topics in the component.
-    ///
-    /// Returns Hashmap with topic name as key and [AvroSchema] as value.
-    pub fn make_avro_schema(&self) -> HashMap<String, AvroSchema> {
-        HashMap::from([("ackcmd".to_owned(), self.ack_cmd.make_avro_schema())])
-            .into_iter()
-            .chain(ComponentInfo::make_avro_schema_for_topic_set(
-                &self.commands,
-            ))
-            .chain(ComponentInfo::make_avro_schema_for_topic_set(&self.events))
-            .chain(ComponentInfo::make_avro_schema_for_topic_set(
-                &self.telemetry,
-            ))
-            .collect()
+    pub fn get_topic_schemas(&self) -> HashMap<String, String> {
+        self.sal_subsystem_info.get_topic_schemas()
     }
 
-    /// Make avro schema for a set of topics (a hashmap of topic_name, topic_info).
-    fn make_avro_schema_for_topic_set(
-        topic_set: &HashMap<String, TopicInfo>,
-    ) -> HashMap<String, AvroSchema> {
-        topic_set
-            .iter()
-            .map(|(topic_name, topic_info)| (topic_name.to_owned(), topic_info.make_avro_schema()))
-            .collect()
-    }
+    // Make avro schema for all topics in the component.
+    //
+    // Returns Hashmap with topic name as key and [AvroSchema] as value.
+    // pub fn make_avro_schema(&self) -> HashMap<String, AvroSchema> {
+    //     HashMap::from([("ackcmd".to_owned(), self.ack_cmd.make_avro_schema())])
+    //         .into_iter()
+    //         .chain(ComponentInfo::make_avro_schema_for_topic_set(
+    //             &self.commands,
+    //         ))
+    //         .chain(ComponentInfo::make_avro_schema_for_topic_set(&self.events))
+    //         .chain(ComponentInfo::make_avro_schema_for_topic_set(
+    //             &self.telemetry,
+    //         ))
+    //         .collect()
+    // }
+
+    // Make avro schema for a set of topics (a hashmap of topic_name, topic_info).
+    // fn make_avro_schema_for_topic_set(
+    //     topic_set: &HashMap<String, TopicInfo>,
+    // ) -> HashMap<String, AvroSchema> {
+    //     topic_set
+    //         .iter()
+    //         .map(|(topic_name, topic_info)| (topic_name.to_owned(), topic_info.make_avro_schema()))
+    //         .collect()
+    // }
 }
 
 #[cfg(test)]
@@ -175,18 +172,10 @@ mod tests {
 
         assert_eq!(component_info.name, "Test");
         assert_eq!(component_info.topic_subname, "unit_test");
-        assert_eq!(component_info.indexed, true);
-        assert_eq!(
-            component_info.description,
-            "A SAL component designed to support testing SAL itself."
-        );
+        assert_eq!(component_info.is_indexed(), true);
         assert_eq!(component_info.ack_cmd.get_topic_name(), "ackcmd");
         assert_eq!(component_info.ack_cmd.get_sal_name(), "Test_ackcmd");
         assert_eq!(component_info.get_topic_subname(), "unit_test");
-        assert_eq!(
-            component_info.get_description(),
-            "A SAL component designed to support testing SAL itself."
-        );
         assert!(
             component_info.commands.contains_key("command_start"),
             "{}",
@@ -207,14 +196,9 @@ mod tests {
         let component_info = ComponentInfo::new("Test", "unit_test").unwrap();
 
         let avro_schema: HashMap<String, Schema> = component_info
-            .make_avro_schema()
+            .get_topic_schemas()
             .into_iter()
-            .map(|(name, schema)| {
-                (
-                    name.to_owned(),
-                    Schema::parse_str(&serde_json::to_string(&schema).unwrap()).unwrap(),
-                )
-            })
+            .map(|(name, schema)| (name.to_owned(), Schema::parse_str(&schema).unwrap()))
             .collect();
 
         let heartbeat_schema = avro_schema.get("logevent_heartbeat").unwrap();

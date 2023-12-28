@@ -2,6 +2,8 @@
 
 use crate::{error::errors::SalObjResult, generics::start::Start, sal_enums::State};
 
+pub const HEARTBEAT_TIME: std::time::Duration = std::time::Duration::from_secs(1);
+
 pub trait BaseCSC {
     fn do_start(&mut self, data: Start) -> SalObjResult<()> {
         let new_state = self.get_current_state().start()?;

@@ -69,42 +69,33 @@ use crate::{
     component_info::ComponentInfo,
     domain::Domain,
     error::errors::{SalObjError, SalObjResult},
-    sal_enums,
-    topics::topic_info::{AvroSchema, TopicInfo},
+    topics::topic_info::TopicInfo,
 };
-use apache_avro::{
-    types::{Record, Value},
-    Schema,
-};
-use log;
+
+use futures::future::join_all;
+
 use schema_registry_converter::{
     async_impl::{
         avro::{AvroDecoder, AvroEncoder},
         schema_registry::{post_schema, SrSettings},
     },
-    avro_common::DecodeResult,
     error::SRCError,
-    schema_registry_common::{RegisteredSchema, SchemaType, SubjectNameStrategy, SuppliedSchema},
+    schema_registry_common::{RegisteredSchema, SchemaType, SuppliedSchema},
 };
 use std::collections::HashMap;
 use std::env;
-use std::error::Error;
 
 ///Information for one SAL component and index.
-pub struct SalInfo<'a> {
+pub struct SalInfo {
     index: isize,
     component_info: ComponentInfo,
-    /// HashMap with topics schema, key is topic name.
-    topic_schema: HashMap<String, Result<Schema, Box<dyn Error>>>,
-    encoder: AvroEncoder<'a>,
-    decoder: AvroDecoder<'a>,
 }
 
-unsafe impl<'a> Send for SalInfo<'a> {}
+unsafe impl Send for SalInfo {}
 
-impl<'a> SalInfo<'a> {
+impl SalInfo {
     /// Create a new instance of `SalInfo`.
-    pub fn new(name: &str, index: isize) -> SalObjResult<SalInfo<'a>> {
+    pub fn new(name: &str, index: isize) -> SalObjResult<SalInfo> {
         let topic_subname = match env::var("LSST_TOPIC_SUBNAME") {
             Ok(val) => val,
             Err(_) => {
@@ -121,65 +112,46 @@ impl<'a> SalInfo<'a> {
             )));
         }
 
-        let topic_schema = component_info
-            .make_avro_schema()
-            .into_iter()
-            .map(|(topic, avro_schema)| (topic, SalInfo::get_schema(&avro_schema)))
-            .collect();
-
         Ok(SalInfo {
             index,
             component_info,
-            topic_schema,
-            encoder: SalInfo::make_encoder(),
-            decoder: SalInfo::make_decoder(),
         })
-    }
-
-    fn get_schema(schema: &AvroSchema) -> Result<Schema, Box<dyn Error>> {
-        match serde_json::to_string(schema) {
-            Ok(serialized) => match Schema::parse_str(&serialized) {
-                Ok(schema) => Ok(schema),
-                Err(error) => Err(Box::new(error)),
-            },
-            Err(error) => Err(Box::new(error)),
-        }
     }
 
     /// Make an AckCmd `Record` from keyword arguments.
     ///
     /// A `Record` is an object that is built from the avro schema and,
     /// therefore, can be published directly afterwards.
-    pub fn make_ackcmd(
-        &self,
-        private_seqnum: i32,
-        ack: sal_enums::SalRetCode,
-        error: i32,
-        result: &str,
-        timeout: f32,
-    ) -> Option<Record> {
-        let topic_schema = self.topic_schema.get("ackcmd")?;
+    // pub fn make_ackcmd(
+    //     &self,
+    //     private_seqnum: i32,
+    //     ack: sal_enums::SalRetCode,
+    //     error: i32,
+    //     result: &str,
+    //     timeout: f32,
+    // ) -> Option<Record> {
+    //     let topic_schema = self.component_info.get_ackcmd_topic_info().make_schema();
 
-        match topic_schema {
-            Ok(topic_schema) => {
-                if let Some(mut record) = Record::new(topic_schema) {
-                    record.put("private_seqNum", Value::Int(private_seqnum));
-                    record.put("ack", Value::Int(ack as i32));
-                    record.put("error", Value::Int(error));
-                    record.put("result", Value::String(result.to_owned()));
-                    record.put("timeout", Value::Float(timeout));
+    //     match topic_schema {
+    //         Ok(topic_schema) => {
+    //             if let Some(mut record) = Record::new(&topic_schema) {
+    //                 record.put("private_seqNum", Value::Int(private_seqnum));
+    //                 record.put("ack", Value::Int(ack as i32));
+    //                 record.put("error", Value::Int(error));
+    //                 record.put("result", Value::String(result.to_owned()));
+    //                 record.put("timeout", Value::Float(timeout));
 
-                    Some(record)
-                } else {
-                    None
-                }
-            }
-            Err(error) => {
-                log::error!("Error getting ackcmd schema: {error:?}");
-                None
-            }
-        }
-    }
+    //                 Some(record)
+    //             } else {
+    //                 None
+    //             }
+    //         }
+    //         Err(error) => {
+    //             log::error!("Error getting ackcmd schema: {error:?}");
+    //             None
+    //         }
+    //     }
+    // }
 
     /// Is the component indexed?
     pub fn is_indexed(&self) -> bool {
@@ -189,6 +161,14 @@ impl<'a> SalInfo<'a> {
     /// Get the component index.
     pub fn get_index(&self) -> isize {
         self.index
+    }
+
+    pub fn get_optional_index(&self) -> Option<i32> {
+        if self.is_indexed() {
+            Some(self.index as i32)
+        } else {
+            None
+        }
     }
 
     /// Get the component description
@@ -332,80 +312,27 @@ impl<'a> SalInfo<'a> {
         self.component_info.get_topic_info_telemetry(topic_name)
     }
 
-    /// Get schema for topic.
-    pub fn get_topic_schema(&self, topic_name: &str) -> Option<&Schema> {
-        if let Some(topic_schema) = self.topic_schema.get(topic_name) {
-            match topic_schema {
-                Ok(topic_schema) => Some(topic_schema),
-                Err(error) => {
-                    log::error!("Error getting {topic_name} schema: {error:?}");
-                    None
-                }
-            }
-        } else {
-            None
-        }
-    }
-
-    /// Assert that a topic name is a valid topic for this component.
-    ///
-    /// # Panic
-    ///
-    /// If topic name is not part of the component.
-    pub fn assert_is_valid_topic(&self, topic_name: &str) {
-        assert!(
-            self.topic_schema.contains_key(topic_name) || topic_name == "ackcmd",
-            "No topic {} in component {}:: Valid topics are {:?}",
-            topic_name,
-            self.get_name(),
-            self.topic_schema.keys()
-        )
-    }
-
-    pub async fn encode(
-        &self,
-        data_fields: Vec<(&str, Value)>,
-        key_strategy: SubjectNameStrategy,
-    ) -> Result<Vec<u8>, SRCError> {
-        self.encoder.encode(data_fields, key_strategy).await
-    }
-
-    pub async fn decode(&self, bytes: Option<&[u8]>) -> Result<DecodeResult, SRCError> {
-        self.decoder.decode(bytes).await
-    }
-
-    pub async fn register_schema(
-        &self,
-    ) -> HashMap<String, Result<RegisteredSchema, Box<dyn Error>>> {
+    pub async fn register_schema(&self) -> HashMap<String, Result<RegisteredSchema, SRCError>> {
         let sr_settings = SalInfo::make_sr_settings();
-        let mut result: HashMap<String, Result<RegisteredSchema, Box<dyn Error>>> = HashMap::new();
 
-        let topic_schema = self.component_info.make_avro_schema();
+        let topic_schema = self.component_info.get_topic_schemas();
 
-        for (topic, avro_schema) in topic_schema.iter() {
-            match serde_json::to_string(&avro_schema) {
-                Ok(schema) => {
-                    let supplied_schema = SuppliedSchema {
-                        name: Some(self.make_schema_registry_topic_name(topic)),
-                        schema_type: SchemaType::Avro,
-                        schema,
-                        references: vec![],
-                    };
-                    match post_schema(&sr_settings, self.make_subject_name(topic), supplied_schema)
-                        .await
-                    {
-                        Ok(decode) => result.entry(topic.to_owned()).or_insert(Ok(decode)),
-                        Err(error) => result
-                            .entry(topic.to_owned())
-                            .or_insert(Err(Box::new(error))),
-                    }
-                }
-                Err(error) => result
-                    .entry(topic.to_owned())
-                    .or_insert(Err(Box::new(error))),
+        join_all(topic_schema.iter().map(|(topic, schema)| async {
+            let supplied_schema = SuppliedSchema {
+                name: Some(self.make_schema_registry_topic_name(topic)),
+                schema_type: SchemaType::Avro,
+                schema: schema.to_owned(),
+                references: vec![],
             };
-        }
-        result
+
+            (
+                topic.to_owned(),
+                post_schema(&sr_settings, self.make_subject_name(topic), supplied_schema).await,
+            )
+        }))
+        .await
+        .into_iter()
+        .collect()
     }
 
     pub fn make_sr_settings() -> SrSettings {
@@ -475,57 +402,57 @@ mod tests {
         assert_eq!(sal_info.get_name_index(), "ATMCS")
     }
 
-    #[test]
-    fn make_ackcmd() {
-        let sal_info = SalInfo::new("Test", 1).unwrap();
+    // #[test]
+    // fn make_ackcmd() {
+    //     let sal_info = SalInfo::new("Test", 1).unwrap();
 
-        let ackcmd = sal_info.make_ackcmd(
-            12345,
-            sal_enums::SalRetCode::CmdComplete,
-            0,
-            "Command completed successfully.",
-            60.0,
-        );
+    //     let ackcmd = sal_info.make_ackcmd(
+    //         12345,
+    //         sal_enums::SalRetCode::CmdComplete,
+    //         0,
+    //         "Command completed successfully.",
+    //         60.0,
+    //     );
 
-        let fields: HashMap<String, Value> = ackcmd.unwrap().fields.into_iter().collect();
+    //     let fields: HashMap<String, Value> = ackcmd.unwrap().fields.into_iter().collect();
 
-        let private_seqnum = match fields.get("private_seqNum").unwrap() {
-            Value::Int(value) => value.to_owned(),
-            _ => panic!("wrong type for private_seqNum."),
-        };
-        let ack = match fields.get("ack").unwrap() {
-            Value::Int(value) => value.to_owned(),
-            _ => panic!("wrong type for ack."),
-        };
-        let result = match fields.get("result").unwrap() {
-            Value::String(value) => value.to_owned(),
-            _ => panic!("wrong type for result."),
-        };
-        let timeout = match fields.get("timeout").unwrap() {
-            Value::Float(value) => value.to_owned(),
-            _ => panic!("wrong type for timeout."),
-        };
+    //     let private_seqnum = match fields.get("private_seqNum").unwrap() {
+    //         Value::Int(value) => value.to_owned(),
+    //         _ => panic!("wrong type for private_seqNum."),
+    //     };
+    //     let ack = match fields.get("ack").unwrap() {
+    //         Value::Int(value) => value.to_owned(),
+    //         _ => panic!("wrong type for ack."),
+    //     };
+    //     let result = match fields.get("result").unwrap() {
+    //         Value::String(value) => value.to_owned(),
+    //         _ => panic!("wrong type for result."),
+    //     };
+    //     let timeout = match fields.get("timeout").unwrap() {
+    //         Value::Float(value) => value.to_owned(),
+    //         _ => panic!("wrong type for timeout."),
+    //     };
 
-        assert_eq!(private_seqnum, 12345 as i32);
-        assert_eq!(ack, sal_enums::SalRetCode::CmdComplete as i32);
-        assert_eq!(result, "Command completed successfully.");
-        assert_eq!(timeout, 60.0);
-    }
+    //     assert_eq!(private_seqnum, 12345 as i32);
+    //     assert_eq!(ack, sal_enums::SalRetCode::CmdComplete as i32);
+    //     assert_eq!(result, "Command completed successfully.");
+    //     assert_eq!(timeout, 60.0);
+    // }
 
-    #[test]
-    fn assert_is_valid_topic_with_valid_topic() {
-        let sal_info = SalInfo::new("Test", 1).unwrap();
+    // #[test]
+    // fn assert_is_valid_topic_with_valid_topic() {
+    //     let sal_info = SalInfo::new("Test", 1).unwrap();
 
-        sal_info.assert_is_valid_topic("logevent_scalars")
-    }
+    //     sal_info.assert_is_valid_topic("logevent_scalars")
+    // }
 
-    #[test]
-    #[should_panic]
-    fn assert_is_valid_topic_with_invalid_topic() {
-        let sal_info = SalInfo::new("Test", 1).unwrap();
+    // #[test]
+    // #[should_panic]
+    // fn assert_is_valid_topic_with_invalid_topic() {
+    //     let sal_info = SalInfo::new("Test", 1).unwrap();
 
-        sal_info.assert_is_valid_topic("logevent_badTopicName")
-    }
+    //     sal_info.assert_is_valid_topic("logevent_badTopicName")
+    // }
 
     #[test]
     fn get_topic_info_ackcmd() {

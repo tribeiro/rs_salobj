@@ -15,20 +15,24 @@ pub struct ControllerCommandAck {
 }
 
 impl ControllerCommandAck {
-    pub async fn start<'si>(domain: &Domain, sal_info: &SalInfo<'si>) -> ControllerCommandAck {
+    pub async fn start(domain: &Domain, sal_info: &SalInfo) -> ControllerCommandAck {
         let (ack_sender, mut ack_receiver): (mpsc::Sender<CommandAck>, mpsc::Receiver<CommandAck>) =
             mpsc::channel(100);
         let mut ack_writer = WriteTopic::new("ackcmd", sal_info, domain);
+        let sal_index: i32 = sal_info.get_index() as i32;
+
         let ack_task = task::spawn(async move {
             while let Some(command_ack) = ack_receiver.recv().await {
                 let mut ackcmd = command_ack.to_ackcmd();
                 ackcmd.set_private_seq_num(command_ack.get_seq_num());
+                ackcmd.set_sal_index(sal_index);
+                log::trace!("{ackcmd:?}");
                 let _ = ack_writer.write_typed(&mut ackcmd).await;
             }
         });
         ControllerCommandAck {
-            ack_task: ack_task,
-            ack_sender: ack_sender,
+            ack_task,
+            ack_sender,
         }
     }
 

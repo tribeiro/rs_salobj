@@ -45,6 +45,7 @@ pub struct ReadTopic<'a> {
     /// Topic consumer.
     consumer: KafkaResult<Consumer>,
     decoder: AvroDecoder<'a>,
+    sal_index: Option<i32>,
 }
 
 impl<'a> BaseTopic for ReadTopic<'a> {}
@@ -56,8 +57,6 @@ impl<'a> ReadTopic<'a> {
         domain: &Domain,
         max_history: usize,
     ) -> ReadTopic<'a> {
-        sal_info.assert_is_valid_topic(topic_name);
-
         if sal_info.is_indexed() && sal_info.get_index() == 0 && max_history > 1 {
             panic!(
                 "max_history={max_history} must be 0 or 1 for an indexed component with index=0."
@@ -69,6 +68,8 @@ impl<'a> ReadTopic<'a> {
         } else {
             FetchOffset::Latest
         };
+
+        let sal_index = sal_info.get_optional_index();
 
         ReadTopic {
             topic_name: topic_name.to_owned(),
@@ -84,6 +85,7 @@ impl<'a> ReadTopic<'a> {
                 .create(),
             current_data: None,
             decoder: SalInfo::make_decoder(),
+            sal_index,
         }
     }
 
@@ -209,6 +211,10 @@ impl<'a> ReadTopic<'a> {
                                                 self.topic_name
                                             );
                                             let data_value = data.value;
+                                            if !ReadTopic::same_index(&self.sal_index, &data_value)
+                                            {
+                                                continue;
+                                            }
                                             self.current_data = Some(data_value.clone());
                                             self.data_queue.push_back(data_value);
                                             n_messages += 1;
@@ -234,6 +240,32 @@ impl<'a> ReadTopic<'a> {
                 Ok(0)
             }
             Err(error) => Err(SalObjError::new(&error.to_string())),
+        }
+    }
+
+    fn same_index(sal_index: &Option<i32>, data_value: &Value) -> bool {
+        if let Some(sal_index) = sal_index {
+            if let Value::Record(data_record) = &data_value {
+                let data_sal_index: Vec<&Value> = data_record
+                    .iter()
+                    .filter_map(|(field, value)| {
+                        if field == "salIndex" {
+                            Some(value)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                if let Some(Value::Int(data_sal_index)) = data_sal_index.get(0) {
+                    sal_index == data_sal_index
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
         }
     }
 }

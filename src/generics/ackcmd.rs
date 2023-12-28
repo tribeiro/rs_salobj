@@ -5,29 +5,29 @@ use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
 #[derive(Debug, Default, Deserialize, Serialize, BaseSALTopic)]
 pub struct AckCmd {
     /// Acknowledgement code.
-    ack: i64,
+    ack: i32,
     /// Error number.
-    error: i64,
+    error: i32,
     /// Result string with an explanation for the ack.
     result: String,
     /// Identity of the component that issued the command.
     identity: String,
     /// origin of the component that issued the command.
-    origin: i64,
+    origin: i32,
     /// Index of command in alphabetical list of commands, with 0 being the first.
-    cmdtype: i64,
+    cmdtype: i32,
     /// Estimated timeout for the command.
     timeout: f64,
 }
 
 impl AckCmd {
     pub fn new(
-        ack: i64,
-        error: i64,
+        ack: i32,
+        error: i32,
         result: &str,
         identity: &str,
-        origin: i64,
-        cmdtype: i64,
+        origin: i32,
+        cmdtype: i32,
         timeout: f64,
     ) -> AckCmd {
         AckCmd {
@@ -42,7 +42,7 @@ impl AckCmd {
         }
     }
 
-    pub fn get_cmdtype(&self) -> i64 {
+    pub fn get_cmdtype(&self) -> i32 {
         self.cmdtype
     }
 }

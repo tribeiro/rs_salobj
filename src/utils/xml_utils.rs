@@ -1,61 +1,5 @@
-use crate::error::errors::{SalObjError, SalObjResult};
-use std::env;
-use std::fs;
-use std::path::Path;
-
-/// Read interface definition xml file into a string.
-///
-/// # Panics
-///
-/// If environment variable TS_XML_DIR does not exists.
-///
-/// If the directory pointed by TS_XML_DIR does not exists.
-pub fn read_xml_interface(interface: &str) -> SalObjResult<String> {
-    match env::var("TS_XML_DIR") {
-        Ok(val) => {
-            let interfaces_dir = Path::new(&val);
-
-            assert!(
-                interfaces_dir.exists(),
-                "{}",
-                format!("Interface directory {val} does not exists.")
-            );
-
-            let sal_subsystems_path = interfaces_dir.join(interface);
-            if sal_subsystems_path.exists() {
-                match fs::read_to_string(sal_subsystems_path) {
-                    Ok(file_content) => Ok(file_content),
-                    Err(error) => Err(SalObjError::new(&error.to_string())),
-                }
-            } else {
-                Err(SalObjError::new(&format!(
-                    "No interface file for {interface}"
-                )))
-            }
-        }
-        Err(_) => panic!("Required environment variable 'TS_XML_DIR' not set."),
-    }
-}
-
-/// Utility method to unwrap the result of `read_xml_interface`.
-///
-/// This method will either return the string part of the result, filtered out
-/// of entries that are undesired or an empty string in case of
-/// NoInterfaceFileError.
-pub fn unwrap_xml_interface(xml_interface: SalObjResult<String>) -> String {
-    match xml_interface {
-        Ok(xml_interface) => xml_interface
-            .lines()
-            .filter(|line| !line.contains("?xml"))
-            .filter(|line| !line.contains("Enumeration"))
-            .map(|line| format!("{}\n", line))
-            .collect(),
-        Err(_) => String::new(),
-    }
-}
-
 /// Returns default sal index.
-pub fn get_default_sal_index() -> i64 {
+pub fn get_default_sal_index() -> i32 {
     0
 }
 
@@ -64,36 +8,4 @@ pub fn convert_sal_name_to_topic_name(component_name: &str, topic_name: &str) ->
     topic_name
         .replace(&format!("{}_", component_name), "")
         .replace("SALGeneric_", "")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_read_xml_interface() {
-        let interface = read_xml_interface("SALSubsystems.xml").unwrap();
-
-        assert!(interface.len() > 0)
-    }
-
-    #[test]
-    #[should_panic(expected = "No interface file for SALInexistent.xml")]
-    fn test_read_inexistent_interface() {
-        read_xml_interface("SALInexistent.xml").unwrap();
-    }
-
-    #[test]
-    fn test_unwrap_xml_interface() {
-        let interface = unwrap_xml_interface(read_xml_interface("SALSubsystems.xml"));
-
-        assert!(interface.len() > 0)
-    }
-
-    #[test]
-    fn test_unwrap_inexistent_interface() {
-        let interface = unwrap_xml_interface(read_xml_interface("SALInexistent.xml"));
-
-        assert_eq!(interface.len(), 0)
-    }
 }

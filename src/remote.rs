@@ -7,17 +7,20 @@
 use crate::domain;
 use crate::error::errors::SalObjResult;
 use crate::sal_info;
-use crate::topics::base_topic::BaseTopic;
+
 use crate::topics::remote_command;
-use crate::topics::write_topic::WriteTopic;
-use crate::topics::{read_topic::ReadTopic, remote_command::RemoteCommand};
+
+use crate::topics::{
+    base_sal_topic::BaseSALTopic, read_topic::ReadTopic, remote_command::RemoteCommand,
+};
 use crate::utils::command_ack::CommandAck;
 use crate::utils::types::{ReadTopicSet, RemoteCommandSet};
 use apache_avro::types::Record;
 use apache_avro::types::Value;
 use apache_avro::Schema;
+use serde::Serialize;
 use std::collections::HashMap;
-use std::time::Duration;
+use std::{fmt::Debug, time::Duration};
 
 /// Handle operations on a remote SAL object.
 /// This object can execute commands to and receive telemetry and events from
@@ -25,14 +28,14 @@ use std::time::Duration;
 ///
 /// If a SAL component listens to or commands other SAL components
 /// then it will have one Remote for each such component.
-pub struct Remote<'a, 'b> {
-    sal_info: sal_info::SalInfo<'a>,
+pub struct Remote<'b> {
+    sal_info: sal_info::SalInfo,
     commands: RemoteCommandSet<'b>,
     events: ReadTopicSet<'b>,
     telemetry: ReadTopicSet<'b>,
 }
 
-impl<'a, 'b> Remote<'a, 'b> {
+impl<'b> Remote<'b> {
     pub fn new(
         domain: &mut domain::Domain,
         name: &str,
@@ -41,7 +44,7 @@ impl<'a, 'b> Remote<'a, 'b> {
         include: Vec<String>,
         exclude: Vec<String>,
         evt_max_history: usize,
-    ) -> SalObjResult<Remote<'a, 'b>> {
+    ) -> SalObjResult<Remote<'b>> {
         if !include.is_empty() && !exclude.is_empty() {
             panic!("include_only and exclude can not both have elements.");
         } else if !include.is_empty() || !exclude.is_empty() {
@@ -106,7 +109,7 @@ impl<'a, 'b> Remote<'a, 'b> {
         domain: &mut domain::Domain,
         name: &str,
         index: isize,
-    ) -> SalObjResult<Remote<'a, 'b>> {
+    ) -> SalObjResult<Remote<'b>> {
         Remote::new(domain, name, index, false, Vec::new(), Vec::new(), 1)
     }
 
@@ -116,7 +119,7 @@ impl<'a, 'b> Remote<'a, 'b> {
     }
 
     pub fn get_command_schema(&self, command_name: &str) -> Option<Schema> {
-        WriteTopic::get_avro_schema(&self.sal_info, command_name)
+        Some(self.commands.get(command_name)?.get_schema().clone())
     }
 
     /// Get component index.
@@ -139,6 +142,25 @@ impl<'a, 'b> Remote<'a, 'b> {
 
         if let Some(command) = self.commands.get_mut(&command_name) {
             command.run(parameters, timeout, wait_done).await
+        } else {
+            Err(CommandAck::invalid_command(&format!(
+                "Command {command_name} not in the list of commands."
+            )))
+        }
+    }
+
+    pub async fn run_command_typed<T>(
+        &mut self,
+        command_name: &str,
+        data: &mut T,
+        timeout: Duration,
+        wait_done: bool,
+    ) -> remote_command::AckCmdResult
+    where
+        T: BaseSALTopic + Serialize + Debug,
+    {
+        if let Some(command) = self.commands.get_mut(command_name) {
+            command.run_typed(data, timeout, wait_done).await
         } else {
             Err(CommandAck::invalid_command(&format!(
                 "Command {command_name} not in the list of commands."
