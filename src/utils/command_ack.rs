@@ -15,12 +15,12 @@ pub struct CommandAck {
     /// Identity of the component that issued the command.
     identity: String,
     /// origin of the component that issued the command.
-    origin: i64,
-    cmdtype: i64,
+    origin: i32,
+    cmdtype: i32,
     /// Estimated timeout for the command.
     timeout: std::time::Duration,
     /// Sequence number of the command issued.
-    seq_num: i64,
+    seq_num: i32,
 }
 
 impl fmt::Display for CommandAck {
@@ -50,9 +50,9 @@ impl CommandAck {
         error: isize,
         result: String,
         identity: String,
-        origin: i64,
+        origin: i32,
         timeout: std::time::Duration,
-        seq_num: i64,
+        seq_num: i32,
     ) -> CommandAck {
         CommandAck {
             ack,
@@ -149,11 +149,11 @@ impl CommandAck {
         &self.identity
     }
 
-    pub fn get_origin(&self) -> i64 {
+    pub fn get_origin(&self) -> i32 {
         self.origin
     }
 
-    pub fn get_cmdtype(&self) -> i64 {
+    pub fn get_cmdtype(&self) -> i32 {
         self.cmdtype
     }
 
@@ -161,20 +161,20 @@ impl CommandAck {
         self.timeout
     }
 
-    pub fn get_seq_num(&self) -> i64 {
+    pub fn get_seq_num(&self) -> i32 {
         self.seq_num
     }
 
-    pub fn get_ack(&self) -> i64 {
-        self.ack.clone() as i64
+    pub fn get_ack(&self) -> i32 {
+        self.ack.clone() as i32
     }
 
     pub fn get_ack_enum(&self) -> &SalRetCode {
         &self.ack
     }
 
-    pub fn get_error(&self) -> i64 {
-        self.error as i64
+    pub fn get_error(&self) -> i32 {
+        self.error as i32
     }
 
     pub fn get_result(&self) -> &str {

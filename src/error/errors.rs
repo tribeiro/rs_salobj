@@ -33,3 +33,15 @@ impl SalObjError {
         &self.err_msg
     }
 }
+
+impl From<Box<dyn Error>> for SalObjError {
+    fn from(item: Box<dyn Error>) -> SalObjError {
+        SalObjError::new(&item.to_string())
+    }
+}
+
+impl From<apache_avro::Error> for SalObjError {
+    fn from(item: apache_avro::Error) -> SalObjError {
+        SalObjError::new(&item.to_string())
+    }
+}

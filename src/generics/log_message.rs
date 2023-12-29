@@ -66,14 +66,9 @@ mod tests {
         let component_info = ComponentInfo::new("Test", "unit_test").unwrap();
 
         let avro_schema: HashMap<String, Schema> = component_info
-            .make_avro_schema()
+            .get_topic_schemas()
             .into_iter()
-            .map(|(name, schema)| {
-                (
-                    name.to_owned(),
-                    Schema::parse_str(&serde_json::to_string(&schema).unwrap()).unwrap(),
-                )
-            })
+            .map(|(name, schema)| (name.to_owned(), Schema::parse_str(&schema).unwrap()))
             .collect();
 
         let schema = avro_schema.get("logevent_logMessage").unwrap();
@@ -85,18 +80,30 @@ mod tests {
         record.put("traceback", Value::String("".to_owned()));
         record.put("filePath", Value::String("some_file".to_owned()));
         record.put("functionName", Value::String("some_function".to_owned()));
-        record.put("lineNumber", Value::Long(123));
-        record.put("process", Value::Long(321));
-        record.put("timestamp", Value::Double(5e3));
+        record.put("lineNumber", Value::Int(123));
+        record.put("process", Value::Int(321));
+        record.put("timestamp", Value::Union(0, Box::new(Value::Double(5e3))));
 
-        record.put("private_sndStamp", Value::Double(1.234));
-        record.put("private_origin", Value::Long(123));
+        record.put(
+            "private_sndStamp",
+            Value::Union(0, Box::new(Value::Double(1.234))),
+        );
+        record.put("private_origin", Value::Int(123));
         record.put("private_identity", Value::String("unit@test".to_string()));
-        record.put("private_seqNum", Value::Long(321));
-        record.put("private_rcvStamp", Value::Double(4.321));
-        record.put("salIndex", Value::Long(1));
-        record.put("private_efdStamp", Value::Double(1.234));
-        record.put("private_kafkaStamp", Value::Double(1.234));
+        record.put("private_seqNum", Value::Int(321));
+        record.put(
+            "private_rcvStamp",
+            Value::Union(0, Box::new(Value::Double(4.321))),
+        );
+        record.put("salIndex", Value::Int(1));
+        record.put(
+            "private_efdStamp",
+            Value::Union(0, Box::new(Value::Double(1.234))),
+        );
+        record.put(
+            "private_kafkaStamp",
+            Value::Union(0, Box::new(Value::Double(1.234))),
+        );
         record.put("private_revCode", Value::String("xyz".to_string()));
 
         let mut writer = Writer::with_codec(&schema, Vec::new(), Codec::Deflate);

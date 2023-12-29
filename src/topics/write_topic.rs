@@ -18,25 +18,25 @@ use schema_registry_converter::{
     async_impl::avro::AvroEncoder, schema_registry_common::SubjectNameStrategy,
 };
 use serde::Serialize;
-use std::time::Duration;
+use std::{fmt::Debug, time::Duration};
 
 /// Base struct for writing a topic.
 pub struct WriteTopic<'a> {
     /// The name of the topic.
     topic_name: String,
     /// Index of the CSC, must be 0 if CSC is not indexed.
-    index: i64,
+    index: i32,
     /// Is the CSC indexed?
     indexed: bool,
     /// An identifier of the current process.
-    origin: i64,
+    origin: i32,
     /// A string identifying the instance.
     identity: String,
     /// Data producer.
     producer: KafkaResult<producer::Producer>,
     /// Sequence number of the written samples. This number is incremented
     /// every time a sample is published.
-    seq_num: i64,
+    seq_num: i32,
     encoder: AvroEncoder<'a>,
     schema_registry_topic_name: String,
     schema: Schema,
@@ -46,15 +46,19 @@ impl<'a> BaseTopic for WriteTopic<'a> {}
 
 impl<'a> WriteTopic<'a> {
     pub fn new(topic_name: &str, sal_info: &SalInfo, domain: &Domain) -> WriteTopic<'a> {
-        sal_info.assert_is_valid_topic(topic_name);
-
         let mut rng = rand::thread_rng();
+        // FIXME: This needs to be properly handled!
+        let schema = sal_info
+            .get_topic_info(topic_name)
+            .unwrap()
+            .get_schema()
+            .unwrap();
 
         WriteTopic {
             topic_name: topic_name.to_owned(),
-            index: sal_info.get_index() as i64,
+            index: sal_info.get_index() as i32,
             indexed: sal_info.is_indexed(),
-            origin: domain.get_origin() as i64,
+            origin: domain.get_origin() as i32,
             identity: domain.get_identity(),
             producer: producer::Producer::from_hosts(Domain::get_client_hosts())
                 .with_ack_timeout(Duration::from_secs(1))
@@ -63,13 +67,13 @@ impl<'a> WriteTopic<'a> {
             seq_num: rng.gen(),
             encoder: SalInfo::make_encoder(),
             schema_registry_topic_name: sal_info.make_schema_registry_topic_name(topic_name),
-            schema: sal_info.get_topic_schema(topic_name).unwrap().clone(),
+            schema,
         }
     }
     /// Get value of the origin identifier.
     ///
     /// This identifies the process running the current application.
-    pub fn get_origin(&self) -> i64 {
+    pub fn get_origin(&self) -> i32 {
         self.origin
     }
 
@@ -86,7 +90,7 @@ impl<'a> WriteTopic<'a> {
     }
 
     /// Component index.
-    pub fn get_index(&self) -> i64 {
+    pub fn get_index(&self) -> i32 {
         self.index
     }
 
@@ -101,7 +105,7 @@ impl<'a> WriteTopic<'a> {
     }
 
     /// Get current sequence number.
-    pub fn get_seq_num(&self) -> i64 {
+    pub fn get_seq_num(&self) -> i32 {
         self.seq_num
     }
 
@@ -115,21 +119,24 @@ impl<'a> WriteTopic<'a> {
         // read current time in microseconds, as int, convert to f32 then
         // convert to seconds.
         self.seq_num += 1;
-        let timestamp = Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6);
+        let timestamp = Value::Union(
+            0,
+            Box::new(Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6)),
+        );
         data.put("private_sndStamp", timestamp.clone());
         data.put("private_efdStamp", timestamp.clone());
         data.put("private_kafkaStamp", timestamp);
-        data.put("private_origin", Value::Long(self.get_origin()));
+        data.put("private_origin", Value::Int(self.get_origin()));
         data.put("private_identity", Value::String(self.get_identity()));
         data.put("private_revCode", Value::String("Not Set".to_owned()));
+        data.put("private_seqNum", Value::Int(self.seq_num));
         data.put(
-            "private_seqNum",
-            Value::Long(self.seq_num), // FIXME: This is supposed to be an increasing number
+            "private_rcvStamp",
+            Value::Union(0, Box::new(Value::Double(0.0))),
         );
-        data.put("private_rcvStamp", Value::Double(0.0));
 
         if self.is_indexed() {
-            data.put("salIndex", Value::Long(self.get_index()));
+            data.put("salIndex", Value::Int(self.get_index()));
         }
 
         for (key, value) in &data.fields {
@@ -173,11 +180,10 @@ impl<'a> WriteTopic<'a> {
     /// as utc. The precision is going to be microseconds.
     pub async fn write_typed<T>(&mut self, data: &mut T) -> WriteTopicResult
     where
-        T: BaseSALTopic + Serialize,
+        T: BaseSALTopic + Serialize + Debug,
     {
         // read current time in microseconds, as int, convert to f32 then
         // convert to seconds.
-
         self.seq_num += 1;
         let timestamp = Utc::now().timestamp_micros() as f64 * 1e-6;
         data.set_private_snd_stamp(timestamp);
@@ -201,7 +207,32 @@ impl<'a> WriteTopic<'a> {
                     if field == "salIndex" && !self.is_indexed() {
                         continue;
                     } else {
-                        record.put(&field, value);
+                        match value {
+                            Value::Float(value) => {
+                                record.put(&field, Value::Union(0, Box::new(Value::Float(value))))
+                            }
+                            Value::Double(value) => {
+                                record.put(&field, Value::Union(0, Box::new(Value::Double(value))))
+                            }
+                            Value::Array(array) => {
+                                let new_array = Value::Array(
+                                    array
+                                        .into_iter()
+                                        .map(|value| match value {
+                                            Value::Float(value) => {
+                                                Value::Union(0, Box::new(Value::Float(value)))
+                                            }
+                                            Value::Double(value) => {
+                                                Value::Union(0, Box::new(Value::Double(value)))
+                                            }
+                                            _ => value,
+                                        })
+                                        .collect(),
+                                );
+                                record.put(&field, new_array);
+                            }
+                            _ => record.put(&field, value),
+                        };
                     }
                 }
 

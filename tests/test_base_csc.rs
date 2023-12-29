@@ -1,7 +1,7 @@
-use apache_avro::{from_value, to_value, types::Value};
+use apache_avro::{from_value, types::Value};
 use salobj::{
     csc::test_csc::{
-        test_csc::TestCSC,
+        csc::TestCSC,
         topics::{arrays::Arrays, scalars::Scalars, wait::Wait},
     },
     domain::Domain,
@@ -10,48 +10,56 @@ use salobj::{
     sal_enums::{SalRetCode, State},
     topics::{base_sal_topic::BaseSALTopic, base_topic::BaseTopic, write_topic::WriteTopic},
 };
+use simple_logger::SimpleLogger;
 use std::time::Duration;
 use tokio::task;
 
-macro_rules! process_test_csc_commands {
-    ($cmd:expr, $record:ident) => {
+macro_rules! assert_command_fails {
+    ($cmd:expr, $remote:ident, $current_state:ident) => {
         if $cmd == "command_setScalars" {
             let mut scalars = Scalars::default();
             scalars.set_sal_index(123);
-
-            if let Ok(data_value) = to_value(scalars) {
-                if let Value::Record(data_record) = data_value {
-                    for (field, value) in data_record.into_iter() {
-                        $record.put(&field, value);
-                    }
-                }
-            }
+            process_command!($cmd, $remote, scalars, $current_state);
         } else if $cmd == "command_setArrays" {
             let mut array = Arrays::default();
             array.set_sal_index(123);
-            if let Ok(data_value) = to_value(array) {
-                if let Value::Record(data_record) = data_value {
-                    for (field, value) in data_record.into_iter() {
-                        $record.put(&field, value);
-                    }
-                }
-            }
+            process_command!($cmd, $remote, array, $current_state);
         } else if $cmd == "command_wait" {
             let mut wait = Wait::default();
             wait.set_sal_index(123);
-            if let Ok(data_value) = to_value(wait) {
-                if let Value::Record(data_record) = data_value {
-                    for (field, value) in data_record.into_iter() {
-                        $record.put(&field, value);
-                    }
-                }
-            }
+            process_command!($cmd, $remote, wait, $current_state);
+        }
+    };
+}
+
+macro_rules! process_command {
+    ($cmd:expr, $remote:ident, $data:ident, $current_state:ident) => {
+        if let Err(ack_cmd) = $remote
+            .run_command_typed(&$cmd, &mut $data, Duration::from_secs(5), true)
+            .await
+        {
+            println!("{ack_cmd:?}");
+            let cmd_name: Vec<&str> = $cmd.split("_").collect();
+
+            assert_eq!(*ack_cmd.get_ack_enum(), SalRetCode::CmdFailed);
+            assert_eq!(ack_cmd.get_error(), 1);
+
+            assert_eq!(
+                ack_cmd.get_result(),
+                format!("Command {} not allowed in {}.", cmd_name[1], $current_state)
+            );
+        } else {
+            panic!("Command {} should fail.", $cmd);
         }
     };
 }
 
 #[tokio::test]
 async fn test_state_transition() {
+    SimpleLogger::new().init().unwrap();
+
+    log::set_max_level(log::LevelFilter::Debug);
+
     let mut test_csc = TestCSC::new(123).unwrap();
 
     test_csc.start().await;
@@ -82,31 +90,13 @@ async fn test_state_transition() {
     // Check that all commands that should be rejected while in standby are
     // rejected.
     let standby_test_commands = ["setScalars", "setArrays", "wait"];
+    let current_state = "Standby";
 
     for cmd_name in standby_test_commands {
         println!("Testing {cmd_name}");
         let cmd = format!("command_{cmd_name}");
 
-        let schema = remote.get_command_schema(&cmd).unwrap();
-        let mut record = WriteTopic::make_data_type(&schema).unwrap();
-
-        process_test_csc_commands!(cmd, record);
-
-        if let Err(ack_cmd) = remote
-            .run_command(cmd.to_string(), &mut record, timeout, true)
-            .await
-        {
-            println!("{ack_cmd:?}");
-            assert_eq!(*ack_cmd.get_ack_enum(), SalRetCode::CmdFailed);
-            assert_eq!(ack_cmd.get_error(), 1);
-
-            assert_eq!(
-                ack_cmd.get_result(),
-                format!("Command {cmd_name} not allowed in Standby.")
-            );
-        } else {
-            panic!("Command {cmd} should fail.");
-        }
+        assert_command_fails!(cmd, remote, current_state);
     }
 
     // Send the CSC to Disabled and test the same thing.
@@ -126,29 +116,11 @@ async fn test_state_transition() {
         panic!("Command {cmd} should succeed.");
     }
 
+    let current_state = "Disabled";
     for cmd_name in standby_test_commands {
         println!("Testing {cmd_name}");
         let cmd = format!("command_{cmd_name}");
 
-        let schema = remote.get_command_schema(&cmd).unwrap();
-        let mut record = WriteTopic::make_data_type(&schema).unwrap();
-
-        process_test_csc_commands!(cmd, record);
-
-        if let Err(ack_cmd) = remote
-            .run_command(cmd.to_string(), &mut record, timeout, true)
-            .await
-        {
-            println!("{ack_cmd:?}");
-            assert_eq!(*ack_cmd.get_ack_enum(), SalRetCode::CmdFailed);
-            assert_eq!(ack_cmd.get_error(), 1);
-
-            assert_eq!(
-                ack_cmd.get_result(),
-                format!("Command {cmd_name} not allowed in Disabled.")
-            );
-        } else {
-            panic!("Command {cmd} should fail.");
-        }
+        assert_command_fails!(cmd, remote, current_state);
     }
 }

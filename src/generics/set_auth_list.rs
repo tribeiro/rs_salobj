@@ -37,14 +37,9 @@ mod tests {
         let component_info = ComponentInfo::new("Test", "unit_test").unwrap();
 
         let avro_schema: HashMap<String, Schema> = component_info
-            .make_avro_schema()
+            .get_topic_schemas()
             .into_iter()
-            .map(|(name, schema)| {
-                (
-                    name.to_owned(),
-                    Schema::parse_str(&serde_json::to_string(&schema).unwrap()).unwrap(),
-                )
-            })
+            .map(|(name, schema)| (name.to_owned(), Schema::parse_str(&schema).unwrap()))
             .collect();
 
         let topic_schema = avro_schema.get("command_setAuthList").unwrap();
@@ -53,14 +48,26 @@ mod tests {
         topic_record.put("authorizedUsers", Value::String("user@hostname".to_owned()));
         topic_record.put("nonAuthorizedCSCs", Value::String("Test".to_owned()));
 
-        topic_record.put("private_sndStamp", Value::Double(1.234));
-        topic_record.put("private_origin", Value::Long(123));
+        topic_record.put(
+            "private_sndStamp",
+            Value::Union(0, Box::new(Value::Double(1.234))),
+        );
+        topic_record.put("private_origin", Value::Int(123));
         topic_record.put("private_identity", Value::String("unit@test".to_string()));
-        topic_record.put("private_seqNum", Value::Long(321));
-        topic_record.put("private_rcvStamp", Value::Double(4.321));
-        topic_record.put("salIndex", Value::Long(1));
-        topic_record.put("private_efdStamp", Value::Double(1.234));
-        topic_record.put("private_kafkaStamp", Value::Double(1.234));
+        topic_record.put("private_seqNum", Value::Int(321));
+        topic_record.put(
+            "private_rcvStamp",
+            Value::Union(0, Box::new(Value::Double(4.321))),
+        );
+        topic_record.put("salIndex", Value::Int(1));
+        topic_record.put(
+            "private_efdStamp",
+            Value::Union(0, Box::new(Value::Double(1.234))),
+        );
+        topic_record.put(
+            "private_kafkaStamp",
+            Value::Union(0, Box::new(Value::Double(1.234))),
+        );
         topic_record.put("private_revCode", Value::String("xyz".to_string()));
 
         let mut writer = Writer::with_codec(&topic_schema, Vec::new(), Codec::Deflate);

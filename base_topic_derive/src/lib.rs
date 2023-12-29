@@ -24,19 +24,19 @@ fn impl_base_topic_trait(ast: DeriveInput) -> TokenStream {
             fn field_names(&self) -> Vec<&'static str> {
                 vec![#(#field_idents_strs),*]
             }
-            fn get_private_origin(&self) -> i64 {
+            fn get_private_origin(&self) -> i32 {
                 self.private_origin
             }
             fn get_private_identity(&self) -> &str {
                 &self.private_identity
             }
-            fn get_private_seq_num(&self) -> i64 {
+            fn get_private_seq_num(&self) -> i32 {
                 self.private_seq_num
             }
             fn get_private_rcv_stamp(&self) -> f64 {
                 self.private_rcv_stamp
             }
-            fn get_sal_index(&self) -> i64 {
+            fn get_sal_index(&self) -> i32 {
                 self.sal_index
             }
             fn set_private_snd_stamp(&mut self, value: f64) {
@@ -48,7 +48,7 @@ fn impl_base_topic_trait(ast: DeriveInput) -> TokenStream {
             fn set_private_kafka_stamp(&mut self, value: f64) {
                 self.private_kafka_stamp = value;
             }
-            fn set_private_origin(&mut self, value: i64) {
+            fn set_private_origin(&mut self, value: i32) {
                 self.private_origin = value;
             }
             fn set_private_identity(&mut self, value: &str) {
@@ -57,13 +57,13 @@ fn impl_base_topic_trait(ast: DeriveInput) -> TokenStream {
             fn set_private_rev_code(&mut self, value: &str) {
                 self.private_rev_code = value.to_owned();
             }
-            fn set_private_seq_num(&mut self, value: i64) {
+            fn set_private_seq_num(&mut self, value: i32) {
                 self.private_seq_num = value;
             }
             fn set_private_rcv_stamp(&mut self, value: f64) {
                 self.private_rcv_stamp = value;
             }
-            fn set_sal_index(&mut self, value: i64) {
+            fn set_sal_index(&mut self, value: i32) {
                 self.sal_index = value;
             }
         }
@@ -89,7 +89,7 @@ pub fn add_sal_topic_fields(_args: TokenStream, input: TokenStream) -> TokenStre
                 syn::Fields::Named(fields) => {
                     fields.named.push(
                         syn::Field::parse_named
-                            .parse2(quote! { private_origin: i64 })
+                            .parse2(quote! { private_origin: i32 })
                             .unwrap(),
                     );
                     fields.named.push(
@@ -101,7 +101,7 @@ pub fn add_sal_topic_fields(_args: TokenStream, input: TokenStream) -> TokenStre
                         syn::Field::parse_named
                             .parse2(quote! {
                                 #[serde(rename = "private_seqNum")]
-                                private_seq_num: i64
+                                private_seq_num: i32
                             })
                             .unwrap(),
                     );
@@ -125,7 +125,7 @@ pub fn add_sal_topic_fields(_args: TokenStream, input: TokenStream) -> TokenStre
                         syn::Field::parse_named
                             .parse2(quote! {
                                 #[serde(rename = "salIndex", default = "get_default_sal_index")]
-                                sal_index: i64
+                                sal_index: i32
                             })
                             .unwrap(),
                     );

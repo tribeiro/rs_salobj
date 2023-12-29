@@ -25,7 +25,11 @@ async fn main() {
 
     let mut topic_writer = WriteTopic::new(topic, &sal_info, &domain);
 
-    let schema = sal_info.get_topic_schema(&topic).unwrap().clone();
+    let schema = sal_info
+        .get_topic_info(&topic)
+        .unwrap()
+        .get_schema()
+        .unwrap();
 
     println!("Writing heartbeat...");
     for i in 0..10 {

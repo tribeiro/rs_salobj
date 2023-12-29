@@ -62,15 +62,15 @@ pub enum SalRetCode {
 /// Convert a Value::Long into a SalRetCode enum.
 pub fn get_ackcmd_code(ackcmd: Option<&Value>) -> SalRetCode {
     match ackcmd {
-        Some(Value::Long(300)) => SalRetCode::CmdAck,
-        Some(Value::Long(301)) => SalRetCode::CmdInprogress,
-        Some(Value::Long(302)) => SalRetCode::CmdStalled,
-        Some(Value::Long(303)) => SalRetCode::CmdComplete,
-        Some(Value::Long(-300)) => SalRetCode::CmdNoperm,
-        Some(Value::Long(-301)) => SalRetCode::CmdNoack,
-        Some(Value::Long(-302)) => SalRetCode::CmdFailed,
-        Some(Value::Long(-303)) => SalRetCode::CmdAborted,
-        Some(Value::Long(-304)) => SalRetCode::CmdTimeout,
+        Some(Value::Int(300)) => SalRetCode::CmdAck,
+        Some(Value::Int(301)) => SalRetCode::CmdInprogress,
+        Some(Value::Int(302)) => SalRetCode::CmdStalled,
+        Some(Value::Int(303)) => SalRetCode::CmdComplete,
+        Some(Value::Int(-300)) => SalRetCode::CmdNoperm,
+        Some(Value::Int(-301)) => SalRetCode::CmdNoack,
+        Some(Value::Int(-302)) => SalRetCode::CmdFailed,
+        Some(Value::Int(-303)) => SalRetCode::CmdAborted,
+        Some(Value::Int(-304)) => SalRetCode::CmdTimeout,
         _ => SalRetCode::CmdAck,
     }
 }
@@ -186,13 +186,13 @@ mod tests {
 
     #[test]
     fn test_get_ackcmd_code_cmd_ack() {
-        assert_eq!(get_ackcmd_code(Some(&Value::Long(300))), SalRetCode::CmdAck)
+        assert_eq!(get_ackcmd_code(Some(&Value::Int(300))), SalRetCode::CmdAck)
     }
 
     #[test]
     fn test_get_ackcmd_code_cmd_in_progress() {
         assert_eq!(
-            get_ackcmd_code(Some(&Value::Long(301))),
+            get_ackcmd_code(Some(&Value::Int(301))),
             SalRetCode::CmdInprogress
         )
     }

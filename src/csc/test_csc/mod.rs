@@ -1,4 +1,4 @@
 //! Implement TestCSC.
 
-pub mod test_csc;
+pub mod csc;
 pub mod topics;

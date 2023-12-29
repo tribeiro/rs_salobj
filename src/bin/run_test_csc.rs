@@ -1,5 +1,5 @@
 use clap::Parser;
-use salobj::{csc::test_csc::test_csc::TestCSC, utils::cli::LogLevel};
+use salobj::{csc::test_csc::csc::TestCSC, utils::cli::LogLevel};
 use simple_logger::SimpleLogger;
 
 /// Put the CSC in a particular state.
