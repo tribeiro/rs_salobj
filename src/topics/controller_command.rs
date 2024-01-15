@@ -17,6 +17,8 @@ pub struct ControllerCommand<'a> {
     command_reader: ReadTopic<'a>,
     ack_writer: WriteTopic<'a>,
     command_type: usize,
+    origin: u32,
+    identity: String,
 }
 
 impl<'a> ControllerCommand<'a> {
@@ -31,12 +33,22 @@ impl<'a> ControllerCommand<'a> {
                 command_reader: ReadTopic::new(command_name, sal_info, domain, 0),
                 ack_writer: WriteTopic::new("ackcmd", sal_info, domain),
                 command_type,
+                origin: domain.get_origin(),
+                identity: domain.get_identity(),
             })
         } else {
             Err(SalObjError::new(&format!(
                 "Could not find command type for {command_name}"
             )))
         }
+    }
+
+    pub fn get_identity(&self) -> &str {
+        &self.identity
+    }
+
+    pub fn get_origin(&self) -> u32 {
+        self.origin
     }
 
     pub fn get_command_type(&self) -> i64 {
