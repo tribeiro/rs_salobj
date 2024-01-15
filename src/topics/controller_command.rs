@@ -19,8 +19,6 @@ pub struct ControllerCommand<'a> {
     command_type: usize,
 }
 
-unsafe impl<'a> Send for ControllerCommand<'a> {}
-
 impl<'a> ControllerCommand<'a> {
     pub fn new(
         command_name: &str,
