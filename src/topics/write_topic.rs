@@ -172,6 +172,10 @@ impl<'a> WriteTopic<'a> {
         }
     }
 
+    pub fn set_seq_num(&mut self, seq_num: i32) {
+        self.seq_num = seq_num
+    }
+
     /// Write the data.
     ///
     /// # Notes
