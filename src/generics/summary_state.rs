@@ -2,6 +2,7 @@ use crate::{
     sal_enums::State, topics::base_sal_topic::BaseSALTopic, utils::xml_utils::get_default_sal_index,
 };
 use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
+use chrono::Utc;
 
 #[add_sal_topic_fields]
 #[derive(Debug, Default, Deserialize, Serialize, BaseSALTopic)]
@@ -19,6 +20,10 @@ impl SummaryState {
         State::from_summary_state(self)
     }
 
+    pub fn with_summary_state(mut self, value: State) -> Self {
+        self.summary_state = value.to::<i32>().unwrap_or(0);
+        self
+    }
     pub fn set_summary_state(&mut self, value: State) {
         self.summary_state = value.to::<i32>().unwrap_or(0);
     }
