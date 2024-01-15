@@ -8,7 +8,6 @@ use salobj::{
     topics::{base_topic::BaseTopic, read_topic::ReadTopic},
 };
 use std::time::Duration;
-use tokio::time;
 
 #[tokio::main]
 async fn main() {
@@ -20,7 +19,7 @@ async fn main() {
     let component = "Test";
     let topic = "logevent_heartbeat";
 
-    client.load_metadata(&[topic]);
+    let _ = client.load_metadata(&[topic]);
 
     assert!(client.topics().contains(&topic));
 
