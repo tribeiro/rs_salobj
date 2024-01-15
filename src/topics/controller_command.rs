@@ -77,8 +77,12 @@ impl<'a> ControllerCommand<'a> {
     }
 
     pub async fn ack<'si>(&mut self, command_ack: CommandAck) -> WriteTopicResult {
-        let mut ackcmd = command_ack.to_ackcmd();
-        ackcmd.set_private_seq_num(command_ack.get_seq_num());
-        self.ack_writer.write_typed(&mut ackcmd).await
+        let ackcmd = command_ack
+            .to_ackcmd()
+            .with_timestamps()
+            .with_private_origin(self.get_origin() as i32)
+            .with_private_identity(&self.get_identity())
+            .with_private_seq_num(command_ack.get_seq_num());
+        self.ack_writer.write_typed(&ackcmd).await
     }
 }
