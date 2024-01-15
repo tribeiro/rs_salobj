@@ -5,7 +5,7 @@
 //! components.
 
 use crate::domain;
-use crate::error::errors::SalObjResult;
+use crate::error::errors::{SalObjError, SalObjResult};
 use crate::sal_info;
 
 use crate::topics::remote_command;
@@ -146,6 +146,27 @@ impl<'b> Remote<'b> {
             Err(CommandAck::invalid_command(&format!(
                 "Command {command_name} not in the list of commands."
             )))
+        }
+    }
+
+    pub fn get_command_data<T>(&self, cmd_name: &str) -> SalObjResult<T>
+    where
+        T: BaseSALTopic + Default + Debug,
+    {
+        if let Some(command) = self.commands.get(cmd_name) {
+            let seq_num = command.get_seq_num();
+            let origin = command.get_origin();
+            let identity = command.get_identity();
+            let sal_index = command.get_index();
+            let data = T::default()
+                .with_timestamps()
+                .with_private_seq_num(seq_num)
+                .with_private_origin(origin)
+                .with_private_identity(&identity)
+                .with_sal_index(sal_index);
+            Ok(data)
+        } else {
+            Err(SalObjError::new(&format!("No event topic {cmd_name}")))
         }
     }
 
