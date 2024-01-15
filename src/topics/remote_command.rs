@@ -125,7 +125,7 @@ impl<'a> RemoteCommand<'a> {
 
     pub async fn run_typed<'b, T>(
         &mut self,
-        data: &mut T,
+        data: &T,
         timeout: Duration,
         wait_done: bool,
     ) -> AckCmdResult
