@@ -137,8 +137,18 @@ impl<'a> ReadTopic<'a> {
         if flush {
             self.flush();
         }
-        if let Err(error) = self.pool(timeout).await {
-            log::warn!("Error pooling new data: {error}.");
+        let start = Instant::now();
+        match self.pool(timeout).await {
+            Ok(n_messages) => {
+                let duration = start.elapsed();
+                log::trace!(
+                    "pop_back {} took {duration:?} to pool data. Got {n_messages} messages.",
+                    self.topic_name
+                );
+            }
+            Err(error) => {
+                log::warn!("Error pooling new data: {error}.");
+            }
         }
         self.data_queue.pop_back()
     }
@@ -194,12 +204,12 @@ impl<'a> ReadTopic<'a> {
                     match consumer.poll() {
                         Ok(messages) => {
                             let duration = start.elapsed();
-                            log::trace!(
-                                "pool {} took {duration:?} to consume data.",
-                                self.topic_name
-                            );
 
                             let no_data = messages.is_empty();
+                            log::trace!(
+                                "pool {} took {duration:?} to consume data, is empty? {no_data}.",
+                                self.topic_name
+                            );
                             for ms in messages.iter() {
                                 for m in ms.messages() {
                                     let start = Instant::now();
