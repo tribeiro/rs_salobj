@@ -17,9 +17,9 @@ pub struct ControllerCommand<'a> {
     command_reader: ReadTopic<'a>,
     ack_writer: WriteTopic<'a>,
     command_type: usize,
+    origin: u32,
+    identity: String,
 }
-
-unsafe impl<'a> Send for ControllerCommand<'a> {}
 
 impl<'a> ControllerCommand<'a> {
     pub fn new(
@@ -33,12 +33,22 @@ impl<'a> ControllerCommand<'a> {
                 command_reader: ReadTopic::new(command_name, sal_info, domain, 0),
                 ack_writer: WriteTopic::new("ackcmd", sal_info, domain),
                 command_type,
+                origin: domain.get_origin(),
+                identity: domain.get_identity(),
             })
         } else {
             Err(SalObjError::new(&format!(
                 "Could not find command type for {command_name}"
             )))
         }
+    }
+
+    pub fn get_identity(&self) -> &str {
+        &self.identity
+    }
+
+    pub fn get_origin(&self) -> u32 {
+        self.origin
     }
 
     pub fn get_command_type(&self) -> i64 {
@@ -67,8 +77,12 @@ impl<'a> ControllerCommand<'a> {
     }
 
     pub async fn ack<'si>(&mut self, command_ack: CommandAck) -> WriteTopicResult {
-        let mut ackcmd = command_ack.to_ackcmd();
-        ackcmd.set_private_seq_num(command_ack.get_seq_num());
-        self.ack_writer.write_typed(&mut ackcmd).await
+        let ackcmd = command_ack
+            .to_ackcmd()
+            .with_timestamps()
+            .with_private_origin(self.get_origin() as i32)
+            .with_private_identity(&self.get_identity())
+            .with_private_seq_num(command_ack.get_seq_num());
+        self.ack_writer.write_typed(&ackcmd).await
     }
 }

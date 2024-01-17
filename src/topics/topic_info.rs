@@ -9,7 +9,6 @@ use apache_avro::Schema;
 
 use crate::error::errors::{SalObjError, SalObjResult};
 
-
 /// Information about one topic.
 pub struct TopicInfo {
     component_name: String,

@@ -17,16 +17,16 @@ use tokio::task;
 macro_rules! assert_command_fails {
     ($cmd:expr, $remote:ident, $current_state:ident) => {
         if $cmd == "command_setScalars" {
-            let mut scalars = Scalars::default();
-            scalars.set_sal_index(123);
+            // let mut scalars = Scalars::default().with_sal_index(123);
+            let scalars: Scalars = $remote.get_command_data("command_setScalars").unwrap();
             process_command!($cmd, $remote, scalars, $current_state);
         } else if $cmd == "command_setArrays" {
-            let mut array = Arrays::default();
-            array.set_sal_index(123);
+            //let mut array = Arrays::default().with_sal_index(123);
+            let array: Arrays = $remote.get_command_data("command_setArrays").unwrap();
             process_command!($cmd, $remote, array, $current_state);
         } else if $cmd == "command_wait" {
-            let mut wait = Wait::default();
-            wait.set_sal_index(123);
+            // let mut wait = Wait::default().with_sal_index(123);
+            let wait: Wait = $remote.get_command_data("command_wait").unwrap();
             process_command!($cmd, $remote, wait, $current_state);
         }
     };
@@ -35,7 +35,7 @@ macro_rules! assert_command_fails {
 macro_rules! process_command {
     ($cmd:expr, $remote:ident, $data:ident, $current_state:ident) => {
         if let Err(ack_cmd) = $remote
-            .run_command_typed(&$cmd, &mut $data, Duration::from_secs(5), true)
+            .run_command_typed(&$cmd, &$data, Duration::from_secs(5), true)
             .await
         {
             println!("{ack_cmd:?}");

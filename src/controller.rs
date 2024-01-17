@@ -105,30 +105,35 @@ impl<'a> Controller<'a> {
         }
     }
 
-    pub async fn write_event<T>(&mut self, topic_name: &str, data: &mut T) -> SalObjResult<i32>
+    pub fn get_event_to_write<T>(&self, topic_name: &str) -> SalObjResult<T>
+    where
+        T: BaseSALTopic + Default + Debug,
+    {
+        if let Some(writer) = self.events.get(topic_name) {
+            let seq_num = writer.get_seq_num();
+            let origin = writer.get_origin();
+            let identity = writer.get_identity();
+            let sal_index = writer.get_index();
+            let data = T::default()
+                .with_timestamps()
+                .with_private_seq_num(seq_num)
+                .with_private_origin(origin)
+                .with_private_identity(&identity)
+                .with_sal_index(sal_index);
+            Ok(data)
+        } else {
+            Err(SalObjError::new(&format!("No event topic {topic_name}")))
+        }
+    }
+
+    pub async fn write_event<T>(&mut self, topic_name: &str, data: &T) -> SalObjResult<i32>
     where
         T: BaseSALTopic + Serialize + Debug,
     {
         if let Some(writer) = self.events.get_mut(topic_name) {
             writer.write_typed(data).await
-            // if let Ok(data_value) = to_value(data) {
-            //     if let Value::Record(data_record) = data_value {
-            //         let schema = writer.get_schema().clone();
-            //         let mut record = WriteTopic::make_data_type(&schema).unwrap();
-            //         for (field, value) in data_record.into_iter() {
-            //             record.put(&field, value);
-            //         }
-            //         writer.write(&mut record).await
-            //     } else {
-            //         Err(SalObjError::new("Failed to convert value to record."))
-            //     }
-            // } else {
-            //     Err(SalObjError::new("Failed to serialize data."))
-            // }
         } else {
-            Err(SalObjError::new(&format!(
-                "No telemetry topic {topic_name}"
-            )))
+            Err(SalObjError::new(&format!("No event topic {topic_name}")))
         }
     }
 

@@ -172,70 +172,33 @@ impl<'a> WriteTopic<'a> {
         }
     }
 
+    pub fn set_seq_num(&mut self, seq_num: i32) {
+        self.seq_num = seq_num
+    }
+
     /// Write the data.
     ///
     /// # Notes
     ///
     /// Originally the `private_sndStamp` has to be tai but this is writing it
     /// as utc. The precision is going to be microseconds.
-    pub async fn write_typed<T>(&mut self, data: &mut T) -> WriteTopicResult
+    pub async fn write_typed<T>(&mut self, data: &T) -> WriteTopicResult
     where
         T: BaseSALTopic + Serialize + Debug,
     {
         // read current time in microseconds, as int, convert to f32 then
         // convert to seconds.
+        if data.get_private_seq_num() != self.seq_num {
+            return Err(SalObjError::new(&format!(
+                "Input data has wrong sequence number. Must be {}, got {}.",
+                self.seq_num,
+                data.get_private_seq_num(),
+            )));
+        }
         self.seq_num += 1;
-        let timestamp = Utc::now().timestamp_micros() as f64 * 1e-6;
-        data.set_private_snd_stamp(timestamp);
-        data.set_private_efd_stamp(timestamp);
-        data.set_private_kafka_stamp(timestamp);
-        data.set_private_origin(self.get_origin());
-        data.set_private_identity(&self.get_identity());
-        data.set_private_rev_code("Not Set");
-        if data.get_private_seq_num() == 0 {
-            data.set_private_seq_num(self.seq_num);
-        }
-        data.set_private_rcv_stamp(0.0);
-        if self.is_indexed() {
-            data.set_sal_index(self.get_index());
-        }
 
         if let Ok(data_value) = to_value(data) {
             if let Value::Record(data_record) = data_value {
-                let mut record = WriteTopic::make_data_type(&self.schema).unwrap();
-                for (field, value) in data_record.into_iter() {
-                    if field == "salIndex" && !self.is_indexed() {
-                        continue;
-                    } else {
-                        match value {
-                            Value::Float(value) => {
-                                record.put(&field, Value::Union(0, Box::new(Value::Float(value))))
-                            }
-                            Value::Double(value) => {
-                                record.put(&field, Value::Union(0, Box::new(Value::Double(value))))
-                            }
-                            Value::Array(array) => {
-                                let new_array = Value::Array(
-                                    array
-                                        .into_iter()
-                                        .map(|value| match value {
-                                            Value::Float(value) => {
-                                                Value::Union(0, Box::new(Value::Float(value)))
-                                            }
-                                            Value::Double(value) => {
-                                                Value::Union(0, Box::new(Value::Double(value)))
-                                            }
-                                            _ => value,
-                                        })
-                                        .collect(),
-                                );
-                                record.put(&field, new_array);
-                            }
-                            _ => record.put(&field, value),
-                        };
-                    }
-                }
-
                 let record_type = self.get_record_type();
 
                 let key_strategy = SubjectNameStrategy::TopicRecordNameStrategy(
@@ -243,10 +206,35 @@ impl<'a> WriteTopic<'a> {
                     record_type,
                 );
 
-                let data_fields: Vec<(&str, Value)> = record
-                    .fields
+                let data_fields: Vec<(&str, Value)> = data_record
                     .iter()
-                    .map(|(k, v)| (&**k, v.clone()))
+                    .map(|(k, v)| match v {
+                        Value::Float(value) => {
+                            (&**k, Value::Union(0, Box::new(Value::Float(value.clone()))))
+                        }
+                        Value::Double(value) => (
+                            &**k,
+                            Value::Union(0, Box::new(Value::Double(value.clone()))),
+                        ),
+                        Value::Array(array) => {
+                            let new_array = Value::Array(
+                                array
+                                    .into_iter()
+                                    .map(|value| match value {
+                                        Value::Float(value) => {
+                                            Value::Union(0, Box::new(Value::Float(value.clone())))
+                                        }
+                                        Value::Double(value) => {
+                                            Value::Union(0, Box::new(Value::Double(value.clone())))
+                                        }
+                                        _ => value.clone(),
+                                    })
+                                    .collect(),
+                            );
+                            (&**k, new_array)
+                        }
+                        _ => (&**k, v.clone()),
+                    })
                     .collect();
 
                 match self.encoder.encode(data_fields, key_strategy).await {
@@ -257,7 +245,7 @@ impl<'a> WriteTopic<'a> {
                                 format!("{{ \"name\": \"{}\" }}", self.schema_registry_topic_name),
                                 bytes,
                             )) {
-                                Ok(_) => Ok(self.seq_num),
+                                Ok(_) => Ok(data.get_private_seq_num()),
                                 Err(error) => Err(SalObjError::from_error(error)),
                             }
                         }

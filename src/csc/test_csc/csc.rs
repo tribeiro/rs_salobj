@@ -38,8 +38,8 @@ use crate::{
     sal_enums::State,
     sal_info::SalInfo,
     topics::{
-        controller_command::ControllerCommand, controller_command_ack::ControllerCommandAck,
-        write_topic::WriteTopic,
+        base_sal_topic::BaseSALTopic, controller_command::ControllerCommand,
+        controller_command_ack::ControllerCommandAck, write_topic::WriteTopic,
     },
     utils::{command_ack::CommandAck, types::WriteTopicSet},
 };
@@ -108,13 +108,7 @@ impl<'a> TestCSC<'a> {
     /// This method should run only once after instantiating the CSC and will
     /// setup a series of background tasks that operates the CSC.
     pub async fn start(&mut self) {
-        let mut summary_state = SummaryState::default();
-        summary_state.set_summary_state(self.summary_state);
-        if let Err(err) = self
-            .controller
-            .write_event("logevent_summaryState", &mut summary_state)
-            .await
-        {
+        if let Err(err) = self.update_summary_state().await {
             log::error!("Failed to write summary state: {err:?}");
             return;
         };
@@ -133,10 +127,20 @@ impl<'a> TestCSC<'a> {
         let mut heartbeat_writer = WriteTopic::new("logevent_heartbeat", &sal_info, &self.domain);
 
         let heartbeat_task = task::spawn(async move {
+            let origin = heartbeat_writer.get_origin();
+            let identity = heartbeat_writer.get_identity();
+            let sal_index = heartbeat_writer.get_index();
             loop {
-                let mut heartbeat_topic = Heartbeat::default();
+                let seq_num = heartbeat_writer.get_seq_num();
+
+                let heartbeat_topic = Heartbeat::default()
+                    .with_timestamps()
+                    .with_sal_index(sal_index)
+                    .with_private_origin(origin)
+                    .with_private_identity(&identity)
+                    .with_private_seq_num(seq_num);
                 let write_res = heartbeat_writer
-                    .write_typed::<Heartbeat>(&mut heartbeat_topic)
+                    .write_typed::<Heartbeat>(&heartbeat_topic)
                     .await;
                 if write_res.is_err() {
                     log::error!("Failed to write heartbeat data {write_res:?}.");
@@ -411,6 +415,7 @@ impl<'a> TestCSC<'a> {
             log::debug!("setScalars received: {scalars:?}");
             let current_state = self.get_current_state();
             if current_state != State::Enabled {
+                log::debug!("Invalid, current state {current_state}.");
                 return Ok((
                     CommandAck::make_failed(
                         scalars,
@@ -565,11 +570,16 @@ impl<'a> TestCSC<'a> {
 
     /// Publish the current state of the component.
     async fn update_summary_state(&mut self) -> SalObjResult<()> {
-        let mut summary_state = SummaryState::default();
-        summary_state.set_summary_state(self.summary_state);
+        let summary_state = self
+            .controller
+            .get_event_to_write::<SummaryState>("logevent_summaryState")?
+            .with_summary_state(self.summary_state);
+        // let mut summary_state = SummaryState::default();
+        // summary_state.set_summary_state(self.summary_state);
+
         if let Err(err) = self
             .controller
-            .write_event("logevent_summaryState", &mut summary_state)
+            .write_event("logevent_summaryState", &summary_state)
             .await
         {
             return Err(SalObjError::new(&format!(

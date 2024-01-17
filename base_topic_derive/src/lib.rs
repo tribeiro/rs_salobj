@@ -39,32 +39,32 @@ fn impl_base_topic_trait(ast: DeriveInput) -> TokenStream {
             fn get_sal_index(&self) -> i32 {
                 self.sal_index
             }
-            fn set_private_snd_stamp(&mut self, value: f64) {
-                self.private_snd_stamp = value;
+            fn with_timestamps(mut self) -> Self {
+                let timestamp = Utc::now().timestamp_micros() as f64 * 1e-6;
+                self.private_snd_stamp = timestamp;
+                self.private_efd_stamp = timestamp;
+                self.private_kafka_stamp = timestamp;
+                self
             }
-            fn set_private_efd_stamp(&mut self, value: f64) {
-                self.private_efd_stamp = value;
-            }
-            fn set_private_kafka_stamp(&mut self, value: f64) {
-                self.private_kafka_stamp = value;
-            }
-            fn set_private_origin(&mut self, value: i32) {
+            fn with_private_origin(mut self, value: i32) -> Self {
                 self.private_origin = value;
+                self
             }
-            fn set_private_identity(&mut self, value: &str) {
+            fn with_private_identity(mut self, value: &str) -> Self {
                 self.private_identity = value.to_owned();
+                self
             }
-            fn set_private_rev_code(&mut self, value: &str) {
+            fn with_private_rev_code(mut self, value: &str) -> Self {
                 self.private_rev_code = value.to_owned();
+                self
             }
-            fn set_private_seq_num(&mut self, value: i32) {
+            fn with_private_seq_num(mut self, value: i32) -> Self {
                 self.private_seq_num = value;
+                self
             }
-            fn set_private_rcv_stamp(&mut self, value: f64) {
-                self.private_rcv_stamp = value;
-            }
-            fn set_sal_index(&mut self, value: i32) {
+            fn with_sal_index(mut self, value: i32) -> Self {
                 self.sal_index = value;
+                self
             }
         }
     )

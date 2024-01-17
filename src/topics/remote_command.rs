@@ -35,6 +35,22 @@ impl<'a> RemoteCommand<'a> {
         self.command_writer.get_schema()
     }
 
+    pub fn get_index(&self) -> i32 {
+        self.command_writer.get_index()
+    }
+
+    pub fn get_origin(&self) -> i32 {
+        self.command_writer.get_origin()
+    }
+
+    pub fn get_identity(&self) -> String {
+        self.command_writer.get_identity()
+    }
+
+    pub fn get_seq_num(&self) -> i32 {
+        self.command_writer.get_seq_num()
+    }
+
     pub async fn run<'b>(
         &mut self,
         parameters: &mut Record<'b>,
@@ -109,7 +125,7 @@ impl<'a> RemoteCommand<'a> {
 
     pub async fn run_typed<'b, T>(
         &mut self,
-        data: &mut T,
+        data: &T,
         timeout: Duration,
         wait_done: bool,
     ) -> AckCmdResult
