@@ -206,36 +206,8 @@ impl<'a> WriteTopic<'a> {
                     record_type,
                 );
 
-                let data_fields: Vec<(&str, Value)> = data_record
-                    .iter()
-                    .map(|(k, v)| match v {
-                        Value::Float(value) => {
-                            (&**k, Value::Union(0, Box::new(Value::Float(value.clone()))))
-                        }
-                        Value::Double(value) => (
-                            &**k,
-                            Value::Union(0, Box::new(Value::Double(value.clone()))),
-                        ),
-                        Value::Array(array) => {
-                            let new_array = Value::Array(
-                                array
-                                    .into_iter()
-                                    .map(|value| match value {
-                                        Value::Float(value) => {
-                                            Value::Union(0, Box::new(Value::Float(value.clone())))
-                                        }
-                                        Value::Double(value) => {
-                                            Value::Union(0, Box::new(Value::Double(value.clone())))
-                                        }
-                                        _ => value.clone(),
-                                    })
-                                    .collect(),
-                            );
-                            (&**k, new_array)
-                        }
-                        _ => (&**k, v.clone()),
-                    })
-                    .collect();
+                let data_fields: Vec<(&str, Value)> =
+                    data_record.iter().map(|(k, v)| (&**k, v.clone())).collect();
 
                 match self.encoder.encode(data_fields, key_strategy).await {
                     Ok(bytes) => match &mut self.producer {
