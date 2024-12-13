@@ -119,10 +119,7 @@ impl<'a> WriteTopic<'a> {
         // read current time in microseconds, as int, convert to f32 then
         // convert to seconds.
         self.seq_num += 1;
-        let timestamp = Value::Union(
-            0,
-            Box::new(Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6)),
-        );
+        let timestamp = Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6);
         data.put("private_sndStamp", timestamp.clone());
         data.put("private_efdStamp", timestamp.clone());
         data.put("private_kafkaStamp", timestamp);
@@ -130,10 +127,7 @@ impl<'a> WriteTopic<'a> {
         data.put("private_identity", Value::String(self.get_identity()));
         data.put("private_revCode", Value::String("Not Set".to_owned()));
         data.put("private_seqNum", Value::Int(self.seq_num));
-        data.put(
-            "private_rcvStamp",
-            Value::Union(0, Box::new(Value::Double(0.0))),
-        );
+        data.put("private_rcvStamp", Value::Double(0.0));
 
         if self.is_indexed() {
             data.put("salIndex", Value::Int(self.get_index()));
