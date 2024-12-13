@@ -83,28 +83,16 @@ mod tests {
         record.put("functionName", Value::String("some_function".to_owned()));
         record.put("lineNumber", Value::Int(123));
         record.put("process", Value::Int(321));
-        record.put("timestamp", Value::Union(0, Box::new(Value::Double(5e3))));
+        record.put("timestamp", Value::Double(5e3));
 
-        record.put(
-            "private_sndStamp",
-            Value::Union(0, Box::new(Value::Double(1.234))),
-        );
+        record.put("private_sndStamp", Value::Double(1.234));
         record.put("private_origin", Value::Int(123));
         record.put("private_identity", Value::String("unit@test".to_string()));
         record.put("private_seqNum", Value::Int(321));
-        record.put(
-            "private_rcvStamp",
-            Value::Union(0, Box::new(Value::Double(4.321))),
-        );
+        record.put("private_rcvStamp", Value::Double(4.321));
         record.put("salIndex", Value::Int(1));
-        record.put(
-            "private_efdStamp",
-            Value::Union(0, Box::new(Value::Double(1.234))),
-        );
-        record.put(
-            "private_kafkaStamp",
-            Value::Union(0, Box::new(Value::Double(1.234))),
-        );
+        record.put("private_efdStamp", Value::Double(1.234));
+        record.put("private_kafkaStamp", Value::Double(1.234));
         record.put("private_revCode", Value::String("xyz".to_string()));
 
         let mut writer = Writer::with_codec(&schema, Vec::new(), Codec::Deflate);
