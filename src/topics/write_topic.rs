@@ -47,6 +47,7 @@ impl<'a> BaseTopic for WriteTopic<'a> {}
 impl<'a> WriteTopic<'a> {
     pub fn new(topic_name: &str, sal_info: &SalInfo, domain: &Domain) -> WriteTopic<'a> {
         let mut rng = rand::thread_rng();
+        let seq_num: i32 = rng.gen::<i32>().abs();
         // FIXME: This needs to be properly handled!
         let schema = sal_info
             .get_topic_info(topic_name)
@@ -64,7 +65,7 @@ impl<'a> WriteTopic<'a> {
                 .with_ack_timeout(Duration::from_secs(1))
                 .with_required_acks(producer::RequiredAcks::One)
                 .create(),
-            seq_num: rng.gen(),
+            seq_num,
             encoder: SalInfo::make_encoder(),
             schema_registry_topic_name: sal_info.make_schema_registry_topic_name(topic_name),
             schema,
