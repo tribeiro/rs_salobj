@@ -47,6 +47,7 @@ impl<'a> BaseTopic for WriteTopic<'a> {}
 impl<'a> WriteTopic<'a> {
     pub fn new(topic_name: &str, sal_info: &SalInfo, domain: &Domain) -> WriteTopic<'a> {
         let mut rng = rand::thread_rng();
+        let seq_num: i32 = rng.gen::<i32>().abs();
         // FIXME: This needs to be properly handled!
         let schema = sal_info
             .get_topic_info(topic_name)
@@ -64,7 +65,7 @@ impl<'a> WriteTopic<'a> {
                 .with_ack_timeout(Duration::from_secs(1))
                 .with_required_acks(producer::RequiredAcks::One)
                 .create(),
-            seq_num: rng.gen(),
+            seq_num,
             encoder: SalInfo::make_encoder(),
             schema_registry_topic_name: sal_info.make_schema_registry_topic_name(topic_name),
             schema,
@@ -119,10 +120,7 @@ impl<'a> WriteTopic<'a> {
         // read current time in microseconds, as int, convert to f32 then
         // convert to seconds.
         self.seq_num += 1;
-        let timestamp = Value::Union(
-            0,
-            Box::new(Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6)),
-        );
+        let timestamp = Value::Double(Utc::now().timestamp_micros() as f64 * 1e-6);
         data.put("private_sndStamp", timestamp.clone());
         data.put("private_efdStamp", timestamp.clone());
         data.put("private_kafkaStamp", timestamp);
@@ -130,10 +128,7 @@ impl<'a> WriteTopic<'a> {
         data.put("private_identity", Value::String(self.get_identity()));
         data.put("private_revCode", Value::String("Not Set".to_owned()));
         data.put("private_seqNum", Value::Int(self.seq_num));
-        data.put(
-            "private_rcvStamp",
-            Value::Union(0, Box::new(Value::Double(0.0))),
-        );
+        data.put("private_rcvStamp", Value::Double(0.0));
 
         if self.is_indexed() {
             data.put("salIndex", Value::Int(self.get_index()));

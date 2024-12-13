@@ -54,26 +54,14 @@ mod tests {
         topic_record.put("errorReport", Value::String("errorReport".to_string()));
         topic_record.put("traceback", Value::String("traceback".to_string()));
 
-        topic_record.put(
-            "private_sndStamp",
-            Value::Union(0, Box::new(Value::Double(1.234))),
-        );
+        topic_record.put("private_sndStamp", Value::Double(1.234));
         topic_record.put("private_origin", Value::Int(123));
         topic_record.put("private_identity", Value::String("unit@test".to_string()));
-        topic_record.put(
-            "private_efdStamp",
-            Value::Union(0, Box::new(Value::Double(1.234))),
-        );
-        topic_record.put(
-            "private_kafkaStamp",
-            Value::Union(0, Box::new(Value::Double(1.234))),
-        );
+        topic_record.put("private_efdStamp", Value::Double(1.234));
+        topic_record.put("private_kafkaStamp", Value::Double(1.234));
         topic_record.put("private_revCode", Value::String("xyz".to_string()));
         topic_record.put("private_seqNum", Value::Int(321));
-        topic_record.put(
-            "private_rcvStamp",
-            Value::Union(0, Box::new(Value::Double(4.321))),
-        );
+        topic_record.put("private_rcvStamp", Value::Double(4.321));
         topic_record.put("salIndex", Value::Int(1));
 
         let mut writer = Writer::with_codec(&topic_schema, Vec::new(), Codec::Deflate);

@@ -71,32 +71,20 @@ mod tests {
 
         topic_record.put("url", Value::String("url".to_owned()));
         topic_record.put("generator", Value::String("generator".to_owned()));
-        topic_record.put("version", Value::Union(0, Box::new(Value::Float(1.0))));
+        topic_record.put("version", Value::Float(1.0));
         topic_record.put("byteSize", Value::Int(123));
         topic_record.put("checkSum", Value::String("checkSum".to_owned()));
         topic_record.put("mimeType", Value::String("mimeType".to_owned()));
         topic_record.put("id", Value::String("id".to_owned()));
 
-        topic_record.put(
-            "private_sndStamp",
-            Value::Union(0, Box::new(Value::Double(1.234))),
-        );
+        topic_record.put("private_sndStamp", Value::Double(1.234));
         topic_record.put("private_origin", Value::Int(123));
         topic_record.put("private_identity", Value::String("unit@test".to_string()));
         topic_record.put("private_seqNum", Value::Int(321));
-        topic_record.put(
-            "private_rcvStamp",
-            Value::Union(0, Box::new(Value::Double(4.321))),
-        );
+        topic_record.put("private_rcvStamp", Value::Double(4.321));
         topic_record.put("salIndex", Value::Int(1));
-        topic_record.put(
-            "private_efdStamp",
-            Value::Union(0, Box::new(Value::Double(1.234))),
-        );
-        topic_record.put(
-            "private_kafkaStamp",
-            Value::Union(0, Box::new(Value::Double(1.234))),
-        );
+        topic_record.put("private_efdStamp", Value::Double(1.234));
+        topic_record.put("private_kafkaStamp", Value::Double(1.234));
         topic_record.put("private_revCode", Value::String("xyz".to_string()));
 
         let mut writer = Writer::with_codec(&topic_schema, Vec::new(), Codec::Deflate);

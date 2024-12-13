@@ -179,7 +179,6 @@ mod tests {
             String::from("Test_command_disable"),
             String::from("Test_command_enable"),
             String::from("Test_command_exitControl"),
-            String::from("Test_command_setAuthList"),
             String::from("Test_command_setLogLevel"),
             String::from("Test_command_standby"),
             String::from("Test_command_setScalars"),

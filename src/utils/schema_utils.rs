@@ -96,7 +96,7 @@ mod tests {
         //for (key, value) in hash_table {
         //    println!("{key}: {value}");
         //}
-        assert_eq!(hash_table.get("logevent_heartbeat").unwrap(), "fd560245")
+        assert_eq!(hash_table.get("logevent_heartbeat").unwrap(), "9690f77a")
     }
 
     #[test]

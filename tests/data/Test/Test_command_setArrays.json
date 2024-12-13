@@ -12,40 +12,28 @@
         },
         {
             "name": "private_sndStamp",
-            "type": [
-                "double",
-                "null"
-            ],
+            "type": "double",
             "default": 0.0,
             "description": "Time of instance publication",
             "units": "second"
         },
         {
             "name": "private_rcvStamp",
-            "type": [
-                "double",
-                "null"
-            ],
+            "type": "double",
             "default": 0.0,
             "description": "Time of instance reception",
             "units": "second"
         },
         {
             "name": "private_efdStamp",
-            "type": [
-                "double",
-                "null"
-            ],
+            "type": "double",
             "default": 0.0,
             "description": "UTC time for EFD timestamp. An integer (the number of leap seconds) different from private_sndStamp.",
             "units": "second"
         },
         {
             "name": "private_kafkaStamp",
-            "type": [
-                "double",
-                "null"
-            ],
+            "type": "double",
             "default": 0.0,
             "description": "TAI time at which the Kafka message was created.",
             "units": "second"
@@ -210,10 +198,7 @@
             "name": "float0",
             "type": {
                 "type": "array",
-                "items": [
-                    "float",
-                    "null"
-                ]
+                "items": "float"
             },
             "default": [
                 0.0,
@@ -229,10 +214,7 @@
             "name": "double0",
             "type": {
                 "type": "array",
-                "items": [
-                    "double",
-                    "null"
-                ]
+                "items": "double"
             },
             "default": [
                 0.0,

@@ -48,22 +48,10 @@ mod tests {
         let mut topic_record = Record::new(&topic_schema).unwrap();
 
         topic_record.put("salIndex", Value::Int(3));
-        topic_record.put(
-            "private_sndStamp",
-            Value::Union(0, Box::new(Value::Double(1700679476.9876108))),
-        );
-        topic_record.put(
-            "private_rcvStamp",
-            Value::Union(0, Box::new(Value::Double(0.0))),
-        );
-        topic_record.put(
-            "private_efdStamp",
-            Value::Union(0, Box::new(Value::Double(1700679476.9876108))),
-        );
-        topic_record.put(
-            "private_kafkaStamp",
-            Value::Union(0, Box::new(Value::Double(1700679476.9876108))),
-        );
+        topic_record.put("private_sndStamp", Value::Double(1700679476.9876108));
+        topic_record.put("private_rcvStamp", Value::Double(0.0));
+        topic_record.put("private_efdStamp", Value::Double(1700679476.9876108));
+        topic_record.put("private_kafkaStamp", Value::Double(1700679476.9876108));
         topic_record.put("private_seqNum", Value::Int(2));
         topic_record.put("private_revCode", Value::String("Not Set".to_owned()));
         topic_record.put(
@@ -79,14 +67,8 @@ mod tests {
         topic_record.put("longLong0", Value::Int(0));
         topic_record.put("unsignedShort0", Value::Int(0));
         topic_record.put("unsignedInt0", Value::Int(0));
-        topic_record.put(
-            "float0",
-            Value::Union(0, Box::new(Value::Float(0.33333334))),
-        );
-        topic_record.put(
-            "double0",
-            Value::Union(0, Box::new(Value::Double(0.3333333333333333))),
-        );
+        topic_record.put("float0", Value::Float(0.33333334));
+        topic_record.put("double0", Value::Double(0.3333333333333333));
         topic_record.put("string0", Value::String("this is a test".to_owned()));
 
         // topic_record.put("boolean0", Value::Boolean(true));
