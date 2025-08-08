@@ -266,7 +266,7 @@ impl<'a> ReadTopic<'a> {
                         }
                     })
                     .collect();
-                if let Some(Value::Int(data_sal_index)) = data_sal_index.get(0) {
+                if let Some(Value::Int(data_sal_index)) = data_sal_index.first() {
                     sal_index == data_sal_index
                 } else {
                     false
