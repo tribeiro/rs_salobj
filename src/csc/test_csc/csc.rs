@@ -602,7 +602,7 @@ impl<'a> TestCSC<'a> {
     }
 }
 
-impl<'a> BaseCSC for TestCSC<'a> {
+impl BaseCSC for TestCSC<'_> {
     fn get_current_state(&self) -> State {
         self.summary_state
     }
