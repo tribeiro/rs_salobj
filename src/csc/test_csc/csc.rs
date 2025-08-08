@@ -411,7 +411,7 @@ impl<'a> TestCSC<'a> {
         data: &CmdData,
         ack_channel: mpsc::Sender<CommandAck>,
     ) -> SalObjResult<CommandAckResult> {
-        if let Ok(mut scalars) = from_value::<Scalars>(&data.data) {
+        if let Ok(scalars) = from_value::<Scalars>(&data.data) {
             log::debug!("setScalars received: {scalars:?}");
             let current_state = self.get_current_state();
             if current_state != State::Enabled {
@@ -428,7 +428,7 @@ impl<'a> TestCSC<'a> {
             let original_scalars = scalars.clone();
             if self
                 .controller
-                .write_event("logevent_scalars", &mut scalars)
+                .write_event("logevent_scalars", &scalars)
                 .await
                 .is_ok()
             {
@@ -462,7 +462,7 @@ impl<'a> TestCSC<'a> {
         ack_channel: mpsc::Sender<CommandAck>,
     ) -> SalObjResult<CommandAckResult> {
         match from_value::<Arrays>(&data.data) {
-            Ok(mut arrays) => {
+            Ok(arrays) => {
                 let current_state = self.get_current_state();
                 if current_state != State::Enabled {
                     return Ok((
@@ -477,7 +477,7 @@ impl<'a> TestCSC<'a> {
                 let original_arrays = arrays.clone();
                 if self
                     .controller
-                    .write_event("logevent_arrays", &mut arrays)
+                    .write_event("logevent_arrays", &arrays)
                     .await
                     .is_ok()
                 {
