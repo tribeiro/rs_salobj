@@ -48,7 +48,7 @@ pub struct ReadTopic<'a> {
     sal_index: Option<i32>,
 }
 
-impl<'a> BaseTopic for ReadTopic<'a> {}
+impl BaseTopic for ReadTopic<'_> {}
 
 impl<'a> ReadTopic<'a> {
     pub fn new(
