@@ -551,7 +551,9 @@ impl<'a> TestCSC<'a> {
 
                 let wait_data = wait.clone();
                 let ack_channel_process = ack_channel.clone();
-                let _ = task::spawn(async move {
+                // Ignore the return value here, just want to run this in the background
+                // without waiting. The result is really not important.
+                task::spawn(async move {
                     TestCSC::wait_and_ack(wait_data, ack_channel_process).await;
                 });
 
