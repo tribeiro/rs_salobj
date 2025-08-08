@@ -411,7 +411,7 @@ impl<'a> TestCSC<'a> {
         data: &CmdData,
         ack_channel: mpsc::Sender<CommandAck>,
     ) -> SalObjResult<CommandAckResult> {
-        if let Ok(mut scalars) = from_value::<Scalars>(&data.data) {
+        if let Ok(scalars) = from_value::<Scalars>(&data.data) {
             log::debug!("setScalars received: {scalars:?}");
             let current_state = self.get_current_state();
             if current_state != State::Enabled {
@@ -428,7 +428,7 @@ impl<'a> TestCSC<'a> {
             let original_scalars = scalars.clone();
             if self
                 .controller
-                .write_event("logevent_scalars", &mut scalars)
+                .write_event("logevent_scalars", &scalars)
                 .await
                 .is_ok()
             {
@@ -462,7 +462,7 @@ impl<'a> TestCSC<'a> {
         ack_channel: mpsc::Sender<CommandAck>,
     ) -> SalObjResult<CommandAckResult> {
         match from_value::<Arrays>(&data.data) {
-            Ok(mut arrays) => {
+            Ok(arrays) => {
                 let current_state = self.get_current_state();
                 if current_state != State::Enabled {
                     return Ok((
@@ -477,7 +477,7 @@ impl<'a> TestCSC<'a> {
                 let original_arrays = arrays.clone();
                 if self
                     .controller
-                    .write_event("logevent_arrays", &mut arrays)
+                    .write_event("logevent_arrays", &arrays)
                     .await
                     .is_ok()
                 {
@@ -551,7 +551,9 @@ impl<'a> TestCSC<'a> {
 
                 let wait_data = wait.clone();
                 let ack_channel_process = ack_channel.clone();
-                let _ = task::spawn(async move {
+                // Ignore the return value here, just want to run this in the background
+                // without waiting. The result is really not important.
+                task::spawn(async move {
                     TestCSC::wait_and_ack(wait_data, ack_channel_process).await;
                 });
 
@@ -600,7 +602,7 @@ impl<'a> TestCSC<'a> {
     }
 }
 
-impl<'a> BaseCSC for TestCSC<'a> {
+impl BaseCSC for TestCSC<'_> {
     fn get_current_state(&self) -> State {
         self.summary_state
     }

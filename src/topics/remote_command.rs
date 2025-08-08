@@ -64,10 +64,7 @@ impl<'a> RemoteCommand<'a> {
             Ok(seq_num) => loop {
                 if let Some(Value::Record(ack_cmd)) = self.ack_reader.pop_back(false, timeout).await
                 {
-                    let data_dict: HashMap<String, Value> = ack_cmd
-                        .into_iter()
-                        .map(|(field, value)| (field, value))
-                        .collect();
+                    let data_dict: HashMap<String, Value> = ack_cmd.into_iter().collect();
 
                     if *data_dict.get("origin").unwrap_or(&Value::Int(0)) == Value::Int(origin)
                         && *data_dict
@@ -146,10 +143,7 @@ impl<'a> RemoteCommand<'a> {
                     {
                         log::debug!("Got {ack_cmd:?}");
 
-                        let data_dict: HashMap<String, Value> = ack_cmd
-                            .into_iter()
-                            .map(|(field, value)| (field, value))
-                            .collect();
+                        let data_dict: HashMap<String, Value> = ack_cmd.into_iter().collect();
 
                         if *data_dict.get("origin").unwrap_or(&Value::Int(0)) == Value::Int(origin)
                             && *data_dict

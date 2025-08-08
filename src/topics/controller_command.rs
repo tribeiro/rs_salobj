@@ -81,7 +81,7 @@ impl<'a> ControllerCommand<'a> {
             .to_ackcmd()
             .with_timestamps()
             .with_private_origin(self.get_origin() as i32)
-            .with_private_identity(&self.get_identity())
+            .with_private_identity(self.get_identity())
             .with_private_seq_num(command_ack.get_seq_num());
         self.ack_writer.write_typed(&ackcmd).await
     }

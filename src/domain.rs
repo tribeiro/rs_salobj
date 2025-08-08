@@ -10,7 +10,7 @@ use kafka::client::KafkaClient;
 use kafka::error::Error as KafkaError;
 use std::env;
 use std::{process, thread, time::Duration};
-use whoami;
+use whoami::{self, fallible};
 
 const MAX_ITER_LOAD_METADATA: u8 = 5;
 const POOL_CLIENT_WAIT_TIME: Duration = Duration::from_millis(500);
@@ -42,7 +42,7 @@ impl Domain {
     /// Return the default identify.
     pub fn get_default_identity(&self) -> String {
         let username = whoami::username();
-        let hostname = whoami::hostname();
+        let hostname = fallible::hostname().unwrap_or("unknown".to_string());
         format!("{username}@{hostname}")
     }
 

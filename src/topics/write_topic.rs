@@ -42,7 +42,7 @@ pub struct WriteTopic<'a> {
     schema: Schema,
 }
 
-impl<'a> BaseTopic for WriteTopic<'a> {}
+impl BaseTopic for WriteTopic<'_> {}
 
 impl<'a> WriteTopic<'a> {
     pub fn new(topic_name: &str, sal_info: &SalInfo, domain: &Domain) -> WriteTopic<'a> {

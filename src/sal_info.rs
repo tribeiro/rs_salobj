@@ -17,7 +17,7 @@
 //! are referred to in the code.
 //!
 //! * `topic_name`: This is the name of the topic preceded by the type, when it
-//! is an event or a command.
+//!   is an event or a command.
 //!
 //!   Basically:
 //!
@@ -26,7 +26,7 @@
 //!   * `command_setScalars`: Command named `setScalars`.
 //!
 //! * `sal_name`: This is the `topic_name` preceded by the name of the
-//! component.
+//!   component.
 //!
 //!   For example:
 //!
@@ -35,8 +35,8 @@
 //!   * `Test_command_setScalars`.
 //!
 //! * `schema_registry_name`: The name of the topic in the schema registry.
-//! This is composed of the static string `lsst`, the topic subname, the
-//! component name and the topic name separated by "dots".
+//!   This is composed of the static string `lsst`, the topic subname, the
+//!   component name and the topic name separated by "dots".
 //!
 //!   For example:
 //!
@@ -45,20 +45,20 @@
 //!   * `lsst.test.Test.command_setScalars`.
 //!
 //!   In the cases above the topic subname is `test`. This is controlled by the
-//! environment variable `LSST_TOPIC_SUBNAME` and allows us to "namespace" the
-//! topics.
+//!   environment variable `LSST_TOPIC_SUBNAME` and allows us to "namespace" the
+//!   topics.
 //!
 //! * `subject_name`: This is the name used to register the topic in the kafka
-//! broker. This is composed of the static string `-value` appended to the
-//! `schema_registry_name`, e.g.:
+//!   broker. This is composed of the static string `-value` appended to the
+//!   `schema_registry_name`, e.g.:
 //!
 //!   * `lsst.test.Test.logevent_scalars-value`.
 //!   * `lsst.test.Test.scalars-value`.
 //!   * `lsst.test.Test.command_setScalars-value`.
 //!
 //! * `namespace`: The namespace of the topic schema. This is used in the topic
-//! avro schema. This consists of the component name appended to the static
-//! string "lsst.sal.kafka-".
+//!   avro schema. This consists of the component name appended to the static
+//!   string "lsst.sal.kafka-".
 //!
 //!   For example:
 //!
@@ -117,41 +117,6 @@ impl SalInfo {
             component_info,
         })
     }
-
-    /// Make an AckCmd `Record` from keyword arguments.
-    ///
-    /// A `Record` is an object that is built from the avro schema and,
-    /// therefore, can be published directly afterwards.
-    // pub fn make_ackcmd(
-    //     &self,
-    //     private_seqnum: i32,
-    //     ack: sal_enums::SalRetCode,
-    //     error: i32,
-    //     result: &str,
-    //     timeout: f32,
-    // ) -> Option<Record> {
-    //     let topic_schema = self.component_info.get_ackcmd_topic_info().make_schema();
-
-    //     match topic_schema {
-    //         Ok(topic_schema) => {
-    //             if let Some(mut record) = Record::new(&topic_schema) {
-    //                 record.put("private_seqNum", Value::Int(private_seqnum));
-    //                 record.put("ack", Value::Int(ack as i32));
-    //                 record.put("error", Value::Int(error));
-    //                 record.put("result", Value::String(result.to_owned()));
-    //                 record.put("timeout", Value::Float(timeout));
-
-    //                 Some(record)
-    //             } else {
-    //                 None
-    //             }
-    //         }
-    //         Err(error) => {
-    //             log::error!("Error getting ackcmd schema: {error:?}");
-    //             None
-    //         }
-    //     }
-    // }
 
     /// Is the component indexed?
     pub fn is_indexed(&self) -> bool {
