@@ -118,41 +118,6 @@ impl SalInfo {
         })
     }
 
-    /// Make an AckCmd `Record` from keyword arguments.
-    ///
-    /// A `Record` is an object that is built from the avro schema and,
-    /// therefore, can be published directly afterwards.
-    // pub fn make_ackcmd(
-    //     &self,
-    //     private_seqnum: i32,
-    //     ack: sal_enums::SalRetCode,
-    //     error: i32,
-    //     result: &str,
-    //     timeout: f32,
-    // ) -> Option<Record> {
-    //     let topic_schema = self.component_info.get_ackcmd_topic_info().make_schema();
-
-    //     match topic_schema {
-    //         Ok(topic_schema) => {
-    //             if let Some(mut record) = Record::new(&topic_schema) {
-    //                 record.put("private_seqNum", Value::Int(private_seqnum));
-    //                 record.put("ack", Value::Int(ack as i32));
-    //                 record.put("error", Value::Int(error));
-    //                 record.put("result", Value::String(result.to_owned()));
-    //                 record.put("timeout", Value::Float(timeout));
-
-    //                 Some(record)
-    //             } else {
-    //                 None
-    //             }
-    //         }
-    //         Err(error) => {
-    //             log::error!("Error getting ackcmd schema: {error:?}");
-    //             None
-    //         }
-    //     }
-    // }
-
     /// Is the component indexed?
     pub fn is_indexed(&self) -> bool {
         self.component_info.is_indexed()
