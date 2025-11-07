@@ -85,82 +85,79 @@ pub fn add_sal_topic_fields(_args: TokenStream, input: TokenStream) -> TokenStre
     let mut ast = parse_macro_input!(input as DeriveInput);
     match &mut ast.data {
         syn::Data::Struct(ref mut struct_data) => {
-            match &mut struct_data.fields {
-                syn::Fields::Named(fields) => {
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! { private_origin: i32 })
-                            .unwrap(),
-                    );
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! { private_identity: String })
-                            .unwrap(),
-                    );
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! {
-                                #[serde(rename = "private_seqNum")]
-                                private_seq_num: i32
-                            })
-                            .unwrap(),
-                    );
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! {
-                                #[serde(rename = "private_rcvStamp")]
-                                private_rcv_stamp: f64
-                            })
-                            .unwrap(),
-                    );
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! {
-                                #[serde(rename = "private_sndStamp")]
-                                private_snd_stamp: f64
-                            })
-                            .unwrap(),
-                    );
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! {
-                                #[serde(rename = "salIndex", default = "get_default_sal_index")]
-                                sal_index: i32
-                            })
-                            .unwrap(),
-                    );
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! {
-                                #[serde(rename = "private_efdStamp")]
-                                private_efd_stamp: f64
-                            })
-                            .unwrap(),
-                    );
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! {
-                                #[serde(rename = "private_kafkaStamp")]
-                                private_kafka_stamp: f64
-                            })
-                            .unwrap(),
-                    );
-                    fields.named.push(
-                        syn::Field::parse_named
-                            .parse2(quote! {
-                                #[serde(rename = "private_revCode")]
-                                private_rev_code: String
-                            })
-                            .unwrap(),
-                    );
-                }
-                _ => (),
+            if let syn::Fields::Named(fields) = &mut struct_data.fields {
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! { private_origin: i32 })
+                        .unwrap(),
+                );
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! { private_identity: String })
+                        .unwrap(),
+                );
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! {
+                            #[serde(rename = "private_seqNum")]
+                            private_seq_num: i32
+                        })
+                        .unwrap(),
+                );
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! {
+                            #[serde(rename = "private_rcvStamp")]
+                            private_rcv_stamp: f64
+                        })
+                        .unwrap(),
+                );
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! {
+                            #[serde(rename = "private_sndStamp")]
+                            private_snd_stamp: f64
+                        })
+                        .unwrap(),
+                );
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! {
+                            #[serde(rename = "salIndex", default = "get_default_sal_index")]
+                            sal_index: i32
+                        })
+                        .unwrap(),
+                );
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! {
+                            #[serde(rename = "private_efdStamp")]
+                            private_efd_stamp: f64
+                        })
+                        .unwrap(),
+                );
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! {
+                            #[serde(rename = "private_kafkaStamp")]
+                            private_kafka_stamp: f64
+                        })
+                        .unwrap(),
+                );
+                fields.named.push(
+                    syn::Field::parse_named
+                        .parse2(quote! {
+                            #[serde(rename = "private_revCode")]
+                            private_rev_code: String
+                        })
+                        .unwrap(),
+                );
             }
 
-            return quote! {
+            quote! {
                 #ast
             }
-            .into();
+            .into()
         }
         _ => panic!("`add_sal_topic_fields` has to be used with structs "),
     }
