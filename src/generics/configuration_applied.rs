@@ -38,6 +38,7 @@ mod tests {
     use super::*;
     use crate::component_info::ComponentInfo;
     use apache_avro::from_value;
+    use apache_avro::DeflateSettings;
     use apache_avro::Reader;
     use apache_avro::{
         types::{Record, Value},
@@ -56,7 +57,7 @@ mod tests {
             .collect();
 
         let topic_schema = avro_schema.get("logevent_configurationApplied").unwrap();
-        let mut topic_record = Record::new(&topic_schema).unwrap();
+        let mut topic_record = Record::new(topic_schema).unwrap();
 
         topic_record.put(
             "configurations",
@@ -76,11 +77,17 @@ mod tests {
         topic_record.put("private_kafkaStamp", Value::Double(1.234));
         topic_record.put("private_revCode", Value::String("xyz".to_string()));
 
-        let mut writer = Writer::with_codec(&topic_schema, Vec::new(), Codec::Deflate);
+        let mut writer = Writer::with_codec(
+            topic_schema,
+            Vec::new(),
+            Codec::Deflate(DeflateSettings::new(
+                miniz_oxide::deflate::CompressionLevel::NoCompression,
+            )),
+        );
         writer.append(topic_record).unwrap();
 
         let input = writer.into_inner().unwrap();
-        let reader = Reader::with_schema(&topic_schema, &input[..]).unwrap();
+        let reader = Reader::with_schema(topic_schema, &input[..]).unwrap();
 
         for record in reader {
             let topic = from_value::<ConfigurationApplied>(&record.unwrap()).unwrap();

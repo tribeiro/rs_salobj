@@ -41,6 +41,7 @@ mod tests {
     use super::*;
     use crate::component_info::ComponentInfo;
     use apache_avro::from_value;
+    use apache_avro::DeflateSettings;
     use apache_avro::Reader;
     use apache_avro::{
         types::{Record, Value},
@@ -77,7 +78,13 @@ mod tests {
         topic_record.put("private_kafkaStamp", Value::Double(1.234));
         topic_record.put("private_revCode", Value::String("xyz".to_string()));
 
-        let mut writer = Writer::with_codec(&topic_schema, Vec::new(), Codec::Deflate);
+        let mut writer = Writer::with_codec(
+            &topic_schema,
+            Vec::new(),
+            Codec::Deflate(DeflateSettings::new(
+                miniz_oxide::deflate::CompressionLevel::NoCompression,
+            )),
+        );
         writer.append(topic_record).unwrap();
 
         let input = writer.into_inner().unwrap();

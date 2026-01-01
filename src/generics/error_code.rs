@@ -30,6 +30,7 @@ mod tests {
     use super::*;
     use crate::component_info::ComponentInfo;
     use apache_avro::from_value;
+    use apache_avro::DeflateSettings;
     use apache_avro::Reader;
     use apache_avro::{
         types::{Record, Value},
@@ -64,7 +65,13 @@ mod tests {
         topic_record.put("private_rcvStamp", Value::Double(4.321));
         topic_record.put("salIndex", Value::Int(1));
 
-        let mut writer = Writer::with_codec(&topic_schema, Vec::new(), Codec::Deflate);
+        let mut writer = Writer::with_codec(
+            &topic_schema,
+            Vec::new(),
+            Codec::Deflate(DeflateSettings::new(
+                miniz_oxide::deflate::CompressionLevel::NoCompression,
+            )),
+        );
         writer.append(topic_record).unwrap();
 
         let input = writer.into_inner().unwrap();
