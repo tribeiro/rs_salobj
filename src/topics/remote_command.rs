@@ -132,7 +132,10 @@ impl<'a> RemoteCommand<'a> {
         let identity = self.command_writer.get_identity();
         let origin = self.command_writer.get_origin();
         self.ack_reader.flush();
-        log::debug!("Sending command...");
+        log::debug!(
+            "Sending command {}...",
+            self.command_writer.get_topic_name()
+        );
         match self.command_writer.write_typed(data).await {
             Ok(seq_num) => {
                 log::debug!("Wainting ack for seq_num {seq_num}.");
