@@ -146,8 +146,6 @@ impl TopicInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use apache_avro::{types::Record, Schema};
     use std::collections::HashSet;
 
     fn get_expected_ackcmd_fields(indexed: bool) -> HashSet<String> {
