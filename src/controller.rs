@@ -25,16 +25,18 @@ pub struct Controller<'a> {
 }
 
 impl<'a> Controller<'a> {
-    pub fn new(
+    pub async fn new(
         domain: &mut domain::Domain,
         name: &str,
         index: isize,
     ) -> SalObjResult<Controller<'a>> {
         let sal_info = sal_info::SalInfo::new(name, index)?;
 
-        if let Err(error) = domain.register_topics(&sal_info.get_topics_name()) {
+        if let Err(error) = domain.register_topics(&sal_info.get_topics_name()).await {
             log::warn!("Failed to register topics: {error:?}. Continuing...");
         }
+
+        sal_info.register_schema().await;
 
         let commands: ControllerCommandSet = sal_info
             .get_command_names()
@@ -149,12 +151,13 @@ impl<'a> Controller<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn test_create() {
+
+    #[tokio::test]
+    async fn test_create() {
         let mut domain = domain::Domain::new();
         let name = "Test";
         let index = 1;
-        let controller = Controller::new(&mut domain, name, index);
+        let controller = Controller::new(&mut domain, name, index).await;
 
         assert!(controller.is_ok())
     }
