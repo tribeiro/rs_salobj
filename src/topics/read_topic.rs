@@ -1,3 +1,4 @@
+use rand::Rng;
 use std::time::{Duration, Instant};
 
 use crate::{
@@ -7,23 +8,23 @@ use crate::{
     topics::base_topic::BaseTopic,
 };
 use apache_avro::types::Value;
-use kafka::{
-    consumer::{Consumer, FetchOffset, GroupOffsetStorage},
-    error::Result as KafkaResult,
+use rdkafka::{
+    config::FromClientConfig,
+    consumer::{Consumer, StreamConsumer},
+    error::KafkaResult,
+    message::Message,
 };
 use schema_registry_converter::async_impl::avro::AvroDecoder;
 use std::collections::VecDeque;
-use tokio::time::sleep;
 
 // Default value for the ``queue_len`` constructor argument.
 const DEFAULT_QUEUE_LEN: usize = 100;
-
-const POOL_WAIT_TIME: std::time::Duration = std::time::Duration::from_micros(50);
 
 /// Base struct for reading a topic.
 pub struct ReadTopic<'a> {
     /// The name of the topic.
     topic_name: String,
+    subject_name: String,
     /// The name of the topic in the data cloud.
     topic_publish_name: String,
     /// Maximum number of historical items to read when starting up.
@@ -43,7 +44,7 @@ pub struct ReadTopic<'a> {
     /// Data queue.
     data_queue: VecDeque<Value>,
     /// Topic consumer.
-    consumer: KafkaResult<Consumer>,
+    consumer: KafkaResult<StreamConsumer>,
     decoder: AvroDecoder<'a>,
     sal_index: Option<i32>,
 }
@@ -63,26 +64,53 @@ impl<'a> ReadTopic<'a> {
             )
         }
 
-        let fetch_offset = if max_history > 0 {
-            FetchOffset::Earliest
-        } else {
-            FetchOffset::Latest
+        let sal_index = sal_info.get_optional_index();
+
+        let consumer_configuration = {
+            let mut consumer_configuration = domain.get_consumer_configuration();
+            let mut rng = rand::rng();
+            let random_number: u32 = rng.random();
+            consumer_configuration.set(
+                "group.id",
+                format!(
+                    "{}.{}.{}.{}",
+                    sal_info.get_name(),
+                    topic_name,
+                    domain.get_origin(),
+                    random_number
+                ),
+            );
+            if max_history == 0 {
+                consumer_configuration.set("auto.offset.reset", "latest");
+            }
+            consumer_configuration
         };
 
-        let sal_index = sal_info.get_optional_index();
+        let consumer = StreamConsumer::from_config(&consumer_configuration);
+
+        let subject_name = sal_info.make_schema_registry_topic_name(topic_name);
+
+        if let Ok(consumer) = &consumer {
+            if let Err(error) = consumer.subscribe(&[&subject_name]) {
+                log::error!("Failed to subscribe to topic {subject_name}: {error}.");
+            } else {
+                log::trace!("Subscribed to topic {subject_name}. Consumer configuration {consumer_configuration:?}.");
+            }
+            match consumer.fetch_metadata(Some(&subject_name), Duration::new(5, 0)) {
+                Ok(metadata) => log::trace!("{subject_name} metadata {metadata:?}"),
+                Err(err) => log::error!("Failed to retrieve {subject_name} metadata: {err}."),
+            }
+            let watermarks = consumer.fetch_watermarks(&subject_name, 0, Duration::new(5, 0));
+            log::debug!("{} watermarks: {:?}", topic_name, watermarks);
+        }
 
         ReadTopic {
             topic_name: topic_name.to_owned(),
+            subject_name,
             topic_publish_name: sal_info.make_schema_registry_topic_name(topic_name),
             max_history,
             data_queue: VecDeque::with_capacity(DEFAULT_QUEUE_LEN),
-            consumer: Consumer::from_hosts(Domain::get_client_hosts())
-                .with_topic(sal_info.make_schema_registry_topic_name(topic_name))
-                .with_fallback_offset(fetch_offset)
-                .with_group(format!("{}", domain.get_origin()))
-                .with_fetch_max_wait_time(Duration::from_millis(1))
-                .with_offset_storage(GroupOffsetStorage::Kafka)
-                .create(),
+            consumer,
             current_data: None,
             decoder: SalInfo::make_decoder(),
             sal_index,
@@ -168,7 +196,7 @@ impl<'a> ReadTopic<'a> {
             match self.pool(timeout).await {
                 Ok(n_messages) => {
                     let duration = start.elapsed();
-                    log::trace!(
+                    log::debug!(
                         "pop_front {} took {duration:?} to pool data. Got {n_messages} messages.",
                         self.topic_name
                     );
@@ -193,63 +221,47 @@ impl<'a> ReadTopic<'a> {
     async fn pool(&mut self, timeout: std::time::Duration) -> SalObjResult<usize> {
         match &mut self.consumer {
             Ok(consumer) => {
-                let timer_task = tokio::spawn(async move {
-                    sleep(timeout).await;
-                });
-
-                let mut n_messages = 0;
-
-                while !timer_task.is_finished() {
-                    let start = Instant::now();
-                    match consumer.poll() {
-                        Ok(messages) => {
-                            let duration = start.elapsed();
-
-                            let no_data = messages.is_empty();
-                            log::trace!(
-                                "pool {} took {duration:?} to consume data, is empty? {no_data}.",
-                                self.topic_name
-                            );
-                            for ms in messages.iter() {
-                                for m in ms.messages() {
-                                    let start = Instant::now();
-                                    match self.decoder.decode(Some(m.value)).await {
-                                        Ok(data) => {
-                                            let duration = start.elapsed();
-                                            log::trace!(
-                                                "pool {} took {duration:?} to decode data.",
-                                                self.topic_name
-                                            );
-                                            let data_value = data.value;
-                                            if !ReadTopic::same_index(&self.sal_index, &data_value)
-                                            {
-                                                continue;
-                                            }
-                                            self.current_data = Some(data_value.clone());
-                                            self.data_queue.push_back(data_value);
-                                            n_messages += 1;
-                                        }
-                                        Err(error) => return Err(SalObjError::from_error(error)),
-                                    };
+                // for some reason I need to have this call for watermarks here or
+                // calling recv bellow will block and not make any progress.
+                let _ = consumer.fetch_watermarks(&self.subject_name, 0, timeout);
+                loop {
+                    match consumer.recv().await {
+                        Ok(message) => match self.decoder.decode(message.payload()).await {
+                            Ok(data) => {
+                                let data_value = data.value;
+                                if !ReadTopic::same_index(&self.sal_index, &data_value) {
+                                    log::debug!(
+                                        "Received data for a different index for {}. Expected {:?}, received {:?}. Discarding.",
+                                        self.topic_name,
+                                        self.sal_index,
+                                        data_value,
+                                    );
+                                    continue;
                                 }
-                                if let Err(error) = consumer.consume_messageset(ms) {
-                                    return Err(SalObjError::from_error(error));
-                                }
+                                self.current_data = Some(data_value.clone());
+                                self.data_queue.push_back(data_value);
+                                log::trace!("Received data ok for {}!", self.topic_name);
+                                return Ok(1);
                             }
-                            if n_messages > 0 && no_data {
-                                timer_task.abort();
-                                return Ok(n_messages);
+                            Err(error) => {
+                                log::error!(
+                                    "Error decoding message for {}: {error}",
+                                    self.topic_name
+                                );
+                                return Err(SalObjError::from_error(error));
                             }
-                            sleep(POOL_WAIT_TIME).await;
-                        }
+                        },
                         Err(error) => {
+                            log::error!("Error receiving message for {}: {error}", self.topic_name);
                             return Err(SalObjError::from_error(error));
                         }
                     }
                 }
-                Ok(0)
             }
-            Err(error) => Err(SalObjError::new(&error.to_string())),
+            Err(error) => {
+                log::error!("Error with consumer for {}: {error}", self.topic_name);
+                Err(SalObjError::new(&error.to_string()))
+            }
         }
     }
 
@@ -297,7 +309,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_no_data() {
-        let mut domain = Domain::new();
+        let domain = Domain::new();
         let sal_info = SalInfo::new("Test", 1).unwrap();
 
         let topics: Vec<String> = sal_info
@@ -311,7 +323,7 @@ mod tests {
             .collect();
 
         println!("Loading metadata for topics: {topics:?}");
-        domain.register_topics(&topics).unwrap();
+        domain.register_topics(&topics).await.unwrap();
         sal_info.register_schema().await;
 
         let read_topic = ReadTopic::new("scalars", &sal_info, &domain, 0);
