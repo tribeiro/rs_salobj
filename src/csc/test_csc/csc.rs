@@ -75,9 +75,9 @@ pub struct TestCSC<'a> {
 }
 
 impl<'a> TestCSC<'a> {
-    pub fn new(index: isize) -> SalObjResult<TestCSC<'a>> {
+    pub async fn new(index: isize) -> SalObjResult<TestCSC<'a>> {
         let mut domain = Domain::new();
-        let controller = Controller::new(&mut domain, "Test", index)?;
+        let controller = Controller::new(&mut domain, "Test", index).await?;
         let (command_sender, command_receiver): (
             mpsc::Sender<CmdPayload>,
             mpsc::Receiver<CmdPayload>,
@@ -114,15 +114,6 @@ impl<'a> TestCSC<'a> {
         };
 
         let sal_info = SalInfo::new("Test", self.index).unwrap();
-
-        log::debug!("Registering schema.");
-        sal_info.register_schema().await;
-
-        log::debug!("Registering topics: {:?}.", sal_info.get_topics_name());
-
-        if let Err(error) = self.domain.register_topics(&sal_info.get_topics_name()) {
-            log::warn!("Failed to register topics: {error:?}. Continuing...");
-        }
 
         let mut heartbeat_writer = WriteTopic::new("logevent_heartbeat", &sal_info, &self.domain);
 
