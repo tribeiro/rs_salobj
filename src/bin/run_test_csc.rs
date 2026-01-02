@@ -39,7 +39,7 @@ async fn main() {
 
     log::info!("Running Test CSC with index {}.", cli.get_component_index(),);
 
-    let mut test_csc = TestCSC::new(cli.get_component_index()).unwrap();
+    let mut test_csc = TestCSC::new(cli.get_component_index()).await.unwrap();
 
     log::info!("Starting CSC.");
     test_csc.start().await;
