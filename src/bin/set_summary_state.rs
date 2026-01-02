@@ -84,6 +84,7 @@ async fn main() {
         &cli.get_component_name(),
         cli.get_component_index(),
     )
+    .await
     .unwrap();
 
     let timeout = Duration::from_secs(10);
