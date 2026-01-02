@@ -195,15 +195,6 @@ impl<'a> WriteTopic<'a> {
     where
         T: BaseSALTopic + Serialize + Debug,
     {
-        // read current time in microseconds, as int, convert to f32 then
-        // convert to seconds.
-        if data.get_private_seq_num() != self.seq_num {
-            return Err(SalObjError::new(&format!(
-                "Input data has wrong sequence number. Must be {}, got {}.",
-                self.seq_num,
-                data.get_private_seq_num(),
-            )));
-        }
         self.seq_num += 1;
 
         if let Ok(data_value) = to_value(data) {
