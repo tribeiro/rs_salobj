@@ -417,27 +417,32 @@ impl<'a> TestCSC<'a> {
                     ack_channel,
                 ));
             }
-            let original_scalars = scalars.clone();
-            if self
+            match self
                 .controller
                 .write_event("logevent_scalars", &scalars)
                 .await
-                .is_ok()
             {
-                log::debug!("setScalars sent event, updating telemetry.");
-                let _ = self.telemetry_sender.send(TelemetryPayload {
-                    name: "scalars".to_owned(),
-                    data: TestTelemetry::Scalars(scalars.clone()),
-                });
-                log::debug!("setScalars telemetry sent, command completed.");
+                Ok(_) => {
+                    log::debug!("setScalars sent event, updating telemetry.");
+                    let _ = self.telemetry_sender.send(TelemetryPayload {
+                        name: "scalars".to_owned(),
+                        data: TestTelemetry::Scalars(scalars.clone()),
+                    });
+                    log::debug!("setScalars telemetry sent, command completed.");
 
-                Ok((CommandAck::make_complete(original_scalars), ack_channel))
-            } else {
-                log::debug!("setScalars command failed.");
-                Ok((
-                    CommandAck::make_failed(original_scalars, 1, "Failed to parse event data"),
-                    ack_channel,
-                ))
+                    Ok((CommandAck::make_complete(scalars), ack_channel))
+                }
+                Err(error) => {
+                    log::debug!("setScalars command failed.");
+                    Ok((
+                        CommandAck::make_failed(
+                            scalars,
+                            1,
+                            &format!("Failed to parse event data: {error}."),
+                        ),
+                        ack_channel,
+                    ))
+                }
             }
         } else {
             log::error!("Cannot parse data.");
