@@ -154,11 +154,12 @@ impl<'a> TestCSC<'a> {
             task::spawn(async move {
                 loop {
                     if let Ok(command_data) = controller_command.process_command().await {
+                        log::debug!("Received {command} with: {command_data:?}");
                         let ack_sender = controller_command_ack_sender.clone();
                         let _ = command_sender
                             .send((
                                 CmdData {
-                                    name: command.to_owned(),
+                                    name: command.to_string(),
                                     data: command_data,
                                 },
                                 ack_sender,
