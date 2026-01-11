@@ -9,45 +9,50 @@ use std::path::Path;
 use std::{env, fs};
 
 pub fn glob_schema_files(name: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
-    let schema_dir_path = env::var("LSST_SCHEMA_PATH")?;
-    let schema_dir = Path::new(&schema_dir_path).join(name);
+    if let Ok(schema_dir_path) = env::var("LSST_SCHEMA_PATH") {
+        let schema_dir = Path::new(&schema_dir_path).join(name);
 
-    if !schema_dir.exists() {
-        return Err(Box::new(SalObjError::new(&format!(
-            "Schema path does not exists: {schema_dir_path}."
-        ))));
-    }
+        if !schema_dir.exists() {
+            return Err(Box::new(SalObjError::new(&format!(
+                "Schema path does not exists: {schema_dir_path}."
+            ))));
+        }
 
-    let json_files: Vec<String> = schema_dir
-        .read_dir()?
-        .filter_map(|file_name| match file_name {
-            Ok(file_name) => {
-                let file_path = file_name.path().to_str()?.to_owned();
+        let json_files: Vec<String> = schema_dir
+            .read_dir()?
+            .filter_map(|file_name| match file_name {
+                Ok(file_name) => {
+                    let file_path = file_name.path().to_str()?.to_owned();
 
-                if file_path.ends_with(".json") {
-                    Some(file_path)
-                } else {
-                    None
+                    if file_path.ends_with(".json") {
+                        Some(file_path)
+                    } else {
+                        None
+                    }
                 }
-            }
-            Err(_) => None,
-        })
-        .collect();
+                Err(_) => None,
+            })
+            .collect();
 
-    Ok(json_files
-        .into_iter()
-        .filter_map(|filename| match fs::read_to_string(&filename) {
-            Ok(schema) => {
-                let filename = Path::new(&filename)
-                    .file_name()?
-                    .to_str()?
-                    .to_owned()
-                    .replace(".json", "");
-                Some((filename, schema))
-            }
-            Err(_) => None,
-        })
-        .collect())
+        Ok(json_files
+            .into_iter()
+            .filter_map(|filename| match fs::read_to_string(&filename) {
+                Ok(schema) => {
+                    let filename = Path::new(&filename)
+                        .file_name()?
+                        .to_str()?
+                        .to_owned()
+                        .replace(".json", "");
+                    Some((filename, schema))
+                }
+                Err(_) => None,
+            })
+            .collect())
+    } else {
+        Err(Box::new(SalObjError::new(
+            "Environment variable LSST_SCHEMA_PATH not set.",
+        )))
+    }
 }
 
 pub fn parse_hash_table(hash_table: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {

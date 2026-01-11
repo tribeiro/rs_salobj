@@ -8,7 +8,7 @@ use salobj::{
     generics::summary_state::SummaryState,
     remote::Remote,
     sal_enums::{SalRetCode, State},
-    topics::{base_sal_topic::BaseSALTopic, base_topic::BaseTopic, write_topic::WriteTopic},
+    topics::{base_topic::BaseTopic, write_topic::WriteTopic},
 };
 use simple_logger::SimpleLogger;
 use std::time::Duration;
@@ -38,7 +38,7 @@ macro_rules! process_command {
             .run_command_typed(&$cmd, &$data, Duration::from_secs(5), true)
             .await
         {
-            println!("{ack_cmd:?}");
+            log::debug!("{ack_cmd:?}");
             let cmd_name: Vec<&str> = $cmd.split("_").collect();
 
             assert_eq!(*ack_cmd.get_ack_enum(), SalRetCode::CmdFailed);
@@ -60,33 +60,38 @@ async fn test_state_transition() {
 
     log::set_max_level(log::LevelFilter::Debug);
 
-    let mut test_csc = TestCSC::new(123).unwrap();
+    let mut test_csc = TestCSC::new(123).await.unwrap();
 
     test_csc.start().await;
 
-    let _ = task::spawn(async move {
+    let run_csc_task = task::spawn(async move {
         println!("Running CSC.");
         let _ = test_csc.run().await;
     });
 
     let mut domain = Domain::new();
-    let mut remote = Remote::from_name_index(&mut domain, "Test", 123).unwrap();
+    let mut remote = Remote::from_name_index(&mut domain, "Test", 123)
+        .await
+        .unwrap();
 
-    let timeout = Duration::from_secs(10);
+    let timeout = Duration::from_secs(20);
 
     // Check that the initial state is Standby
-    if let Ok(Some(summary_state)) = remote
+    match remote
         .pop_event_back("logevent_summaryState", false, timeout)
         .await
     {
-        let summary_state = from_value::<SummaryState>(&summary_state)
-            .unwrap()
-            .get_summary_state();
-        assert_eq!(summary_state, State::Standby);
-    } else {
-        panic!("Could not get initial summary state");
-    }
+        Ok(Some(summary_state)) => {
+            let summary_state = from_value::<SummaryState>(&summary_state)
+                .unwrap()
+                .get_summary_state();
+            assert_eq!(summary_state, State::Standby);
+        }
+        Ok(None) => panic!("No summary state data!"),
+        Err(error) => panic!("Could not get initial summary state: {error:?}"),
+    };
 
+    println!("Test commands are rejected if CSC is in Standby.");
     // Check that all commands that should be rejected while in standby are
     // rejected.
     let standby_test_commands = ["setScalars", "setArrays", "wait"];
@@ -95,15 +100,18 @@ async fn test_state_transition() {
     for cmd_name in standby_test_commands {
         println!("Testing {cmd_name}");
         let cmd = format!("command_{cmd_name}");
-
         assert_command_fails!(cmd, remote, current_state);
     }
+
+    println!("Sending CSC to Disabled.");
 
     // Send the CSC to Disabled and test the same thing.
     let cmd = "command_start";
     let schema = remote.get_command_schema(cmd).unwrap();
     let mut record = WriteTopic::make_data_type(&schema).unwrap();
     record.put("configurationOverride", Value::String("".to_owned()));
+
+    println!("Test commands are rejected if CSC is in Disabled.");
 
     if let Ok(ack_cmd) = remote
         .run_command(cmd.to_string(), &mut record, timeout, true)
@@ -123,4 +131,5 @@ async fn test_state_transition() {
 
         assert_command_fails!(cmd, remote, current_state);
     }
+    run_csc_task.abort();
 }

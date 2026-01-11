@@ -36,7 +36,7 @@ pub struct Remote<'b> {
 }
 
 impl<'b> Remote<'b> {
-    pub fn new(
+    pub async fn new(
         domain: &mut domain::Domain,
         name: &str,
         index: isize,
@@ -56,7 +56,7 @@ impl<'b> Remote<'b> {
 
         let sal_info = sal_info::SalInfo::new(name, index)?;
 
-        if let Err(error) = domain.register_topics(&sal_info.get_topics_name()) {
+        if let Err(error) = domain.register_topics(&sal_info.get_topics_name()).await {
             log::warn!("Failed to register topics: {error:?}. Continuing...");
         }
 
@@ -105,12 +105,12 @@ impl<'b> Remote<'b> {
         })
     }
 
-    pub fn from_name_index(
+    pub async fn from_name_index(
         domain: &mut domain::Domain,
         name: &str,
         index: isize,
     ) -> SalObjResult<Remote<'b>> {
-        Remote::new(domain, name, index, false, Vec::new(), Vec::new(), 1)
+        Remote::new(domain, name, index, false, Vec::new(), Vec::new(), 1).await
     }
 
     /// Get component name.
@@ -245,22 +245,27 @@ impl<'b> Remote<'b> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn test_get_name() {
+
+    #[tokio::test]
+    async fn test_get_name() {
         let mut domain = domain::Domain::new();
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(&mut domain, name, index).unwrap();
+        let remote = Remote::from_name_index(&mut domain, name, index)
+            .await
+            .unwrap();
 
         assert_eq!("Test", remote.get_name())
     }
 
-    #[test]
-    fn test_get_index() {
+    #[tokio::test]
+    async fn test_get_index() {
         let mut domain = domain::Domain::new();
         let name = "Test";
         let index = 1;
-        let remote = Remote::from_name_index(&mut domain, name, index).unwrap();
+        let remote = Remote::from_name_index(&mut domain, name, index)
+            .await
+            .unwrap();
 
         assert_eq!(index, remote.get_index());
     }

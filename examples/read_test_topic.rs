@@ -1,5 +1,4 @@
 use apache_avro::types::Value;
-use kafka::client::KafkaClient;
 use std::collections::HashMap;
 
 use salobj::{
@@ -7,21 +6,16 @@ use salobj::{
     sal_info::SalInfo,
     topics::{base_topic::BaseTopic, read_topic::ReadTopic},
 };
+use simple_logger::SimpleLogger;
 use std::time::Duration;
 
 #[tokio::main]
 async fn main() {
-    let mut client = KafkaClient::new(vec!["localhost:9092".to_owned()]);
-    client.set_client_id("kafka-rust-console-producer".into());
-    client.load_metadata_all().unwrap();
-
+    SimpleLogger::new().init().unwrap();
+    log::set_max_level(log::LevelFilter::Debug);
     let domain = domain::Domain::new();
     let component = "Test";
-    let topic = "logevent_heartbeat";
-
-    let _ = client.load_metadata(&[topic]);
-
-    assert!(client.topics().contains(&topic));
+    let topic = "command_start";
 
     let sal_info = SalInfo::new(component, 1).unwrap();
     let max_history: usize = 10;
@@ -42,10 +36,7 @@ async fn main() {
             if let Some(Value::Record(new_data)) =
                 topic_reader.pop_back(false, Duration::from_secs(1)).await
             {
-                let data_dict: HashMap<String, Value> = new_data
-                    .into_iter()
-                    .map(|(field, value)| (field, value))
-                    .collect();
+                let data_dict: HashMap<String, Value> = new_data.into_iter().collect();
                 let private_snd_stamp = data_dict.get("private_seqNum").unwrap();
                 println!("\t{private_snd_stamp:?}");
             } else {

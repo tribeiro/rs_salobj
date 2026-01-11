@@ -75,9 +75,9 @@ pub struct TestCSC<'a> {
 }
 
 impl<'a> TestCSC<'a> {
-    pub fn new(index: isize) -> SalObjResult<TestCSC<'a>> {
+    pub async fn new(index: isize) -> SalObjResult<TestCSC<'a>> {
         let mut domain = Domain::new();
-        let controller = Controller::new(&mut domain, "Test", index)?;
+        let controller = Controller::new(&mut domain, "Test", index).await?;
         let (command_sender, command_receiver): (
             mpsc::Sender<CmdPayload>,
             mpsc::Receiver<CmdPayload>,
@@ -114,15 +114,6 @@ impl<'a> TestCSC<'a> {
         };
 
         let sal_info = SalInfo::new("Test", self.index).unwrap();
-
-        log::debug!("Registering schema.");
-        sal_info.register_schema().await;
-
-        log::debug!("Registering topics: {:?}.", sal_info.get_topics_name());
-
-        if let Err(error) = self.domain.register_topics(&sal_info.get_topics_name()) {
-            log::warn!("Failed to register topics: {error:?}. Continuing...");
-        }
 
         let mut heartbeat_writer = WriteTopic::new("logevent_heartbeat", &sal_info, &self.domain);
 
@@ -163,11 +154,12 @@ impl<'a> TestCSC<'a> {
             task::spawn(async move {
                 loop {
                     if let Ok(command_data) = controller_command.process_command().await {
+                        log::debug!("Received {command} with: {command_data:?}");
                         let ack_sender = controller_command_ack_sender.clone();
                         let _ = command_sender
                             .send((
                                 CmdData {
-                                    name: command.to_owned(),
+                                    name: command.to_string(),
                                     data: command_data,
                                 },
                                 ack_sender,
@@ -425,27 +417,32 @@ impl<'a> TestCSC<'a> {
                     ack_channel,
                 ));
             }
-            let original_scalars = scalars.clone();
-            if self
+            match self
                 .controller
                 .write_event("logevent_scalars", &scalars)
                 .await
-                .is_ok()
             {
-                log::debug!("setScalars sent event, updating telemetry.");
-                let _ = self.telemetry_sender.send(TelemetryPayload {
-                    name: "scalars".to_owned(),
-                    data: TestTelemetry::Scalars(scalars.clone()),
-                });
-                log::debug!("setScalars telemetry sent, command completed.");
+                Ok(_) => {
+                    log::debug!("setScalars sent event, updating telemetry.");
+                    let _ = self.telemetry_sender.send(TelemetryPayload {
+                        name: "scalars".to_owned(),
+                        data: TestTelemetry::Scalars(scalars.clone()),
+                    });
+                    log::debug!("setScalars telemetry sent, command completed.");
 
-                Ok((CommandAck::make_complete(original_scalars), ack_channel))
-            } else {
-                log::debug!("setScalars command failed.");
-                Ok((
-                    CommandAck::make_failed(original_scalars, 1, "Failed to parse event data"),
-                    ack_channel,
-                ))
+                    Ok((CommandAck::make_complete(scalars), ack_channel))
+                }
+                Err(error) => {
+                    log::debug!("setScalars command failed.");
+                    Ok((
+                        CommandAck::make_failed(
+                            scalars,
+                            1,
+                            &format!("Failed to parse event data: {error}."),
+                        ),
+                        ack_channel,
+                    ))
+                }
             }
         } else {
             log::error!("Cannot parse data.");

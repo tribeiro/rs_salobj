@@ -12,13 +12,18 @@ use crate::{
     utils::types::WriteTopicResult,
 };
 use chrono::Utc;
-use kafka::{error::Result as KafkaResult, producer};
 use rand::Rng;
+use rdkafka::{
+    config::FromClientConfig,
+    error::KafkaResult,
+    producer::{future_producer::FutureProducer, FutureRecord},
+    util::Timeout,
+};
 use schema_registry_converter::{
     async_impl::avro::AvroEncoder, schema_registry_common::SubjectNameStrategy,
 };
 use serde::Serialize;
-use std::{fmt::Debug, time::Duration};
+use std::fmt::Debug;
 
 /// Base struct for writing a topic.
 pub struct WriteTopic<'a> {
@@ -33,7 +38,7 @@ pub struct WriteTopic<'a> {
     /// A string identifying the instance.
     identity: String,
     /// Data producer.
-    producer: KafkaResult<producer::Producer>,
+    producer: KafkaResult<FutureProducer>,
     /// Sequence number of the written samples. This number is incremented
     /// every time a sample is published.
     seq_num: i32,
@@ -46,8 +51,8 @@ impl BaseTopic for WriteTopic<'_> {}
 
 impl<'a> WriteTopic<'a> {
     pub fn new(topic_name: &str, sal_info: &SalInfo, domain: &Domain) -> WriteTopic<'a> {
-        let mut rng = rand::thread_rng();
-        let seq_num: i32 = rng.gen::<i32>().abs();
+        let mut rng = rand::rng();
+        let seq_num: i32 = rng.random::<i32>().abs();
         // FIXME: This needs to be properly handled!
         let schema = sal_info
             .get_topic_info(topic_name)
@@ -61,10 +66,7 @@ impl<'a> WriteTopic<'a> {
             indexed: sal_info.is_indexed(),
             origin: domain.get_origin() as i32,
             identity: domain.get_identity(),
-            producer: producer::Producer::from_hosts(Domain::get_client_hosts())
-                .with_ack_timeout(Duration::from_secs(1))
-                .with_required_acks(producer::RequiredAcks::One)
-                .create(),
+            producer: FutureProducer::from_config(&Domain::get_producer_configuration()),
             seq_num,
             encoder: SalInfo::make_encoder(),
             schema_registry_topic_name: sal_info.make_schema_registry_topic_name(topic_name),
@@ -152,13 +154,25 @@ impl<'a> WriteTopic<'a> {
         match self.encoder.encode(data_fields, key_strategy).await {
             Ok(bytes) => match &mut self.producer {
                 Ok(producer) => {
-                    match producer.send(&producer::Record::from_key_value(
-                        &self.schema_registry_topic_name,
-                        format!("{{ \"name\": \"{}\" }}", self.schema_registry_topic_name),
-                        bytes,
-                    )) {
+                    match producer
+                        .send(
+                            FutureRecord {
+                                topic: &self.schema_registry_topic_name,
+                                partition: None,
+                                payload: Some(&bytes),
+                                key: Some(&format!(
+                                    "{{ \"name\": \"{}\" }}",
+                                    self.schema_registry_topic_name
+                                )),
+                                timestamp: None,
+                                headers: None,
+                            },
+                            Timeout::Never,
+                        )
+                        .await
+                    {
                         Ok(_) => Ok(self.seq_num),
-                        Err(error) => Err(SalObjError::from_error(error)),
+                        Err((error, _)) => Err(SalObjError::from_error(error)),
                     }
                 }
                 Err(error) => Err(SalObjError::new(&error.to_string())),
@@ -181,15 +195,6 @@ impl<'a> WriteTopic<'a> {
     where
         T: BaseSALTopic + Serialize + Debug,
     {
-        // read current time in microseconds, as int, convert to f32 then
-        // convert to seconds.
-        if data.get_private_seq_num() != self.seq_num {
-            return Err(SalObjError::new(&format!(
-                "Input data has wrong sequence number. Must be {}, got {}.",
-                self.seq_num,
-                data.get_private_seq_num(),
-            )));
-        }
         self.seq_num += 1;
 
         if let Ok(data_value) = to_value(data) {
@@ -207,13 +212,25 @@ impl<'a> WriteTopic<'a> {
                 match self.encoder.encode(data_fields, key_strategy).await {
                     Ok(bytes) => match &mut self.producer {
                         Ok(producer) => {
-                            match producer.send(&producer::Record::from_key_value(
-                                &self.schema_registry_topic_name,
-                                format!("{{ \"name\": \"{}\" }}", self.schema_registry_topic_name),
-                                bytes,
-                            )) {
+                            match producer
+                                .send(
+                                    FutureRecord {
+                                        topic: &self.schema_registry_topic_name,
+                                        partition: None,
+                                        payload: Some(&bytes),
+                                        key: Some(&format!(
+                                            "{{ \"name\": \"{}\" }}",
+                                            self.schema_registry_topic_name
+                                        )),
+                                        timestamp: None,
+                                        headers: None,
+                                    },
+                                    Timeout::Never,
+                                )
+                                .await
+                            {
                                 Ok(_) => Ok(data.get_private_seq_num()),
-                                Err(error) => Err(SalObjError::from_error(error)),
+                                Err((error, _)) => Err(SalObjError::from_error(error)),
                             }
                         }
                         Err(error) => Err(SalObjError::new(&error.to_string())),
