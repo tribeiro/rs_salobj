@@ -1,31 +1,7 @@
-[package]
-name = "salobj"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-apache-avro = "0.19.0"
-base_topic_derive = {path = "base_topic_derive"}
-handle_command = {path = "handle_command"}
-chrono = "0.4"
-clap = { version = "4.1.6", features = ["derive"] }
-num-traits = "0.2.19"
-schema_registry_converter = { version = "4.5.0", features = ["avro"] }
-serde = "1.0.219"
-serde_derive = "1.0.219"
-serde_json = "1.0.142"
-serde-xml-rs = "0.8.1"
-tokio = { version = "1.47.1", features = ["full"] }
-whoami = "1.6.1"
-log = "0.4.27"
-simple_logger = "5.1.0"
-md5 = "0.8.0"
-rand = "0.9.2"
-futures = "0.3.31"
-rdkafka = { version = "0.38.0", features = ["cmake-build", "ssl", "gssapi-vendored"]}
-miniz_oxide = "0.8.9"
-
-[dev-dependencies]
-num-bigint = "0.4"
+[workspace]
+members = [
+    "salobj",
+    "base_topic_derive",
+    "handle_command",
+]
+resolver = "2"
