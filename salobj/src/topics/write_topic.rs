@@ -258,7 +258,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1).unwrap();
         let write_topic = WriteTopic::new("scalars", &sal_info, &domain);
 
-        assert_eq!(write_topic.is_indexed(), true);
+        assert!(write_topic.is_indexed());
         assert_eq!(write_topic.get_index(), 1);
         assert_eq!(write_topic.get_topic_name(), "scalars");
     }

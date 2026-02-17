@@ -167,12 +167,11 @@ mod tests {
     #[test]
     fn create_test_component_info() {
         let component_info = ComponentInfo::new("Test", "unit_test").unwrap();
-        let component_info_commands: Vec<&String> =
-            component_info.commands.keys().into_iter().collect();
+        let component_info_commands: Vec<&String> = component_info.commands.keys().collect();
 
         assert_eq!(component_info.name, "Test");
         assert_eq!(component_info.topic_subname, "unit_test");
-        assert_eq!(component_info.is_indexed(), true);
+        assert!(component_info.is_indexed());
         assert_eq!(component_info.ack_cmd.get_topic_name(), "ackcmd");
         assert_eq!(component_info.ack_cmd.get_sal_name(), "Test_ackcmd");
         assert_eq!(component_info.get_topic_subname(), "unit_test");
@@ -202,7 +201,7 @@ mod tests {
             .collect();
 
         let heartbeat_schema = avro_schema.get("logevent_heartbeat").unwrap();
-        let heartbeat_record = Record::new(&heartbeat_schema).unwrap();
+        let heartbeat_record = Record::new(heartbeat_schema).unwrap();
 
         let record_fields: HashSet<String> = heartbeat_record
             .fields

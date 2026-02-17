@@ -74,7 +74,7 @@ mod tests {
             .collect();
 
         let schema = avro_schema.get("logevent_logMessage").unwrap();
-        let mut record = Record::new(&schema).unwrap();
+        let mut record = Record::new(schema).unwrap();
 
         record.put("name", Value::String("Test".to_owned()));
         record.put("level", Value::Int(10));
@@ -97,7 +97,7 @@ mod tests {
         record.put("private_revCode", Value::String("xyz".to_string()));
 
         let mut writer = Writer::with_codec(
-            &schema,
+            schema,
             Vec::new(),
             Codec::Deflate(DeflateSettings::new(
                 miniz_oxide::deflate::CompressionLevel::NoCompression,
@@ -106,7 +106,7 @@ mod tests {
         writer.append(record).unwrap();
 
         let input = writer.into_inner().unwrap();
-        let reader = Reader::with_schema(&schema, &input[..]).unwrap();
+        let reader = Reader::with_schema(schema, &input[..]).unwrap();
 
         for record in reader {
             let log_message = from_value::<LogMessage>(&record.unwrap()).unwrap();

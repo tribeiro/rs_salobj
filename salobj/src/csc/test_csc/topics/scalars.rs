@@ -47,7 +47,7 @@ mod tests {
             .collect();
 
         let topic_schema = avro_schema.get("logevent_scalars").unwrap();
-        let mut topic_record = Record::new(&topic_schema).unwrap();
+        let mut topic_record = Record::new(topic_schema).unwrap();
 
         topic_record.put("salIndex", Value::Int(3));
         topic_record.put("private_sndStamp", Value::Double(1700679476.9876108));
@@ -96,14 +96,14 @@ mod tests {
         // topic_record.put("private_revCode", Value::String("xyz".to_string()));
 
         let mut writer = Writer::with_codec(
-            &topic_schema,
+            topic_schema,
             Vec::new(),
             Codec::Deflate(DeflateSettings::new(CompressionLevel::NoCompression)),
         );
         writer.append(topic_record).unwrap();
 
         let input = writer.into_inner().unwrap();
-        let reader = Reader::with_schema(&topic_schema, &input[..]).unwrap();
+        let reader = Reader::with_schema(topic_schema, &input[..]).unwrap();
 
         for record in reader {
             let topic = from_value::<Scalars>(&record.unwrap()).unwrap();
@@ -116,7 +116,7 @@ mod tests {
                 "tribeiro@lynx.local".to_owned()
             );
             assert_eq!(topic.get_private_origin(), 13784);
-            assert_eq!(topic.boolean0, false);
+            assert!(!topic.boolean0);
             assert_eq!(topic.byte0, 0);
             assert_eq!(topic.short0, 0);
             assert_eq!(topic.int0, 10);
