@@ -54,7 +54,7 @@ mod tests {
             .collect();
 
         let summary_state_schema = avro_schema.get("logevent_summaryState").unwrap();
-        let mut summary_state_record = Record::new(&summary_state_schema).unwrap();
+        let mut summary_state_record = Record::new(summary_state_schema).unwrap();
 
         summary_state_record.put("summaryState", Value::Int(2));
         summary_state_record.put("private_sndStamp", Value::Double(1.234));
@@ -68,7 +68,7 @@ mod tests {
         summary_state_record.put("private_revCode", Value::String("xyz".to_string()));
 
         let mut writer = Writer::with_codec(
-            &summary_state_schema,
+            summary_state_schema,
             Vec::new(),
             Codec::Deflate(DeflateSettings::new(
                 miniz_oxide::deflate::CompressionLevel::NoCompression,
@@ -77,7 +77,7 @@ mod tests {
         writer.append(summary_state_record).unwrap();
 
         let input = writer.into_inner().unwrap();
-        let reader = Reader::with_schema(&summary_state_schema, &input[..]).unwrap();
+        let reader = Reader::with_schema(summary_state_schema, &input[..]).unwrap();
 
         for record in reader {
             let summary_state = from_value::<SummaryState>(&record.unwrap()).unwrap();

@@ -39,7 +39,7 @@ mod tests {
             .collect();
 
         let topic_schema = avro_schema.get("logevent_heartbeat").unwrap();
-        let mut topic_record = Record::new(&topic_schema).unwrap();
+        let mut topic_record = Record::new(topic_schema).unwrap();
 
         topic_record.put("heartbeat", Value::Boolean(false));
         topic_record.put("private_sndStamp", Value::Double(1.234));
@@ -53,7 +53,7 @@ mod tests {
         topic_record.put("private_revCode", Value::String("xyz".to_string()));
 
         let mut writer = Writer::with_codec(
-            &topic_schema,
+            topic_schema,
             Vec::new(),
             Codec::Deflate(DeflateSettings::new(
                 miniz_oxide::deflate::CompressionLevel::NoCompression,
@@ -62,12 +62,12 @@ mod tests {
         writer.append(topic_record).unwrap();
 
         let input = writer.into_inner().unwrap();
-        let reader = Reader::with_schema(&topic_schema, &input[..]).unwrap();
+        let reader = Reader::with_schema(topic_schema, &input[..]).unwrap();
 
         for record in reader {
             let topic = from_value::<Heartbeat>(&record.unwrap()).unwrap();
 
-            assert_eq!(topic.get_heartbeat(), false);
+            assert!(!topic.get_heartbeat());
             assert_eq!(topic.get_private_origin(), 123);
             assert_eq!(topic.get_private_identity(), "unit@test".to_string());
             assert_eq!(topic.get_private_seq_num(), 321);

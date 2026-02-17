@@ -424,7 +424,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get ackcmd
-        sal_info.get_topic_info(&"ackcmd").unwrap();
+        sal_info.get_topic_info("ackcmd").unwrap();
     }
 
     #[test]
@@ -432,7 +432,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get command
-        sal_info.get_topic_info(&"command_start").unwrap();
+        sal_info.get_topic_info("command_start").unwrap();
     }
 
     #[test]
@@ -441,7 +441,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get command
-        sal_info.get_topic_info(&"command_startBad").unwrap();
+        sal_info.get_topic_info("command_startBad").unwrap();
     }
 
     #[test]
@@ -449,7 +449,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get event
-        sal_info.get_topic_info(&"logevent_scalars").unwrap();
+        sal_info.get_topic_info("logevent_scalars").unwrap();
     }
 
     #[test]
@@ -458,7 +458,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get event
-        sal_info.get_topic_info(&"logevent_scalarsBad").unwrap();
+        sal_info.get_topic_info("logevent_scalarsBad").unwrap();
     }
 
     #[test]
@@ -466,7 +466,7 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get telemetry
-        sal_info.get_topic_info(&"scalars").unwrap();
+        sal_info.get_topic_info("scalars").unwrap();
     }
 
     #[test]
@@ -475,6 +475,6 @@ mod tests {
         let sal_info = SalInfo::new("Test", 1).unwrap();
 
         // This will panic if fails to get telemetry
-        sal_info.get_topic_info(&"scalarsBad").unwrap();
+        sal_info.get_topic_info("scalarsBad").unwrap();
     }
 }

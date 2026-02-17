@@ -96,7 +96,7 @@ mod tests {
         let topic_schemas = glob_schema_files("Test").unwrap();
         let hash_map_table_str = topic_schemas.get("Test_hash_table").unwrap();
 
-        let hash_table = parse_hash_table(&hash_map_table_str).unwrap();
+        let hash_table = parse_hash_table(hash_map_table_str).unwrap();
 
         //for (key, value) in hash_table {
         //    println!("{key}: {value}");
@@ -147,7 +147,7 @@ mod tests {
                 && !topic_name.contains("global_enums")
                 && !topic_name.contains("hash_table")
             {
-                let _ = Schema::parse_str(&topic_schema).unwrap();
+                let _ = Schema::parse_str(topic_schema).unwrap();
             }
         }
     }

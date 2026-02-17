@@ -3,5 +3,6 @@ members = [
     "salobj",
     "base_topic_derive",
     "handle_command",
+    "ts_xml_define",
 ]
 resolver = "2"
