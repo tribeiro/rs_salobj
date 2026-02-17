@@ -6,6 +6,24 @@ jobs:
   clippy_check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout main repository
+        uses: actions/checkout@v4
+        with:
+          path: salobj
+
+      - name: Checkout public dependency repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'lsst-ts/ts_xml'
+          path: ts_xml
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features 
+        working-directory: ./salobj
+        env:
+          TS_XML_DIR: ${{ github.workspace }}/ts_xml/python/lsst/ts/xml/data/sal_interfaces
+        run: cargo clippy --all-targets --all-features
