@@ -14,20 +14,64 @@ pub fn ts_xml_define(input: TokenStream) -> TokenStream {
     let dir = env::var("TS_XML_DIR").expect("TS_XML_DIR environment variable must be set");
 
     // Build XML path
+    let sal_subsystems_path = format!("{}/SALSubsystems.xml", dir);
+
+    if !fs::exists(&sal_subsystems_path).unwrap_or_else(|e| {
+        panic!("Failed to open SAL Subsystems file ({sal_subsystems_path}): {e}")
+    }) {
+        panic!("SAL Subsystems file does not exist: {sal_subsystems_path}.")
+    }
+
+    let sal_subsystems_xml_content = fs::read_to_string(&sal_subsystems_path).unwrap_or_else(|e| {
+        panic!("Failed to read SAL Subsystems file ({sal_subsystems_path}): {e}.")
+    });
+
+    // Parse XML
+    let sal_subsystems_doc = roxmltree::Document::parse(&sal_subsystems_xml_content)
+        .unwrap_or_else(|e| {
+            panic!("Error parsing SAL Subsystems file ({sal_subsystems_path}): {e}.")
+        });
+
+    let component_name = Some(format!("{name}"));
+
+    let subsystem_node = sal_subsystems_doc
+        .descendants()
+        .filter(|n| n.has_tag_name("SALSubsystem"))
+        .find(|n| {
+            n.children()
+                .find(|c| c.has_tag_name("Name"))
+                .and_then(|c| c.text())
+                == component_name.as_deref()
+        })
+        .unwrap_or_else(|| panic!("Component {name} not in the list of SAL Subsystems."));
+
+    let is_indexed = subsystem_node
+        .children()
+        .find(|c| c.has_tag_name("IndexEnumeration"))
+        .and_then(|c| c.text())
+        .map(|s| s.trim().to_string())
+        != Some("no".to_string());
+
     let telemetry_path = format!("{}/{}/{}_Telemetry.xml", dir, name, name);
     let event_path = format!("{}/{}/{}_Events.xml", dir, name, name);
     let command_path = format!("{}/{}/{}_Commands.xml", dir, name, name);
     let generics_path = format!("{}/SALGenerics.xml", dir);
 
     // Collect all structs
-    let structs: Vec<TokenStream2> = expand_topics(&telemetry_path, None)
+    let structs: Vec<TokenStream2> = expand_topics(&telemetry_path, None, is_indexed)
         .into_iter()
         .chain(
-            expand_topics(&event_path, None).into_iter().chain(
-                expand_topics(&command_path, None)
-                    .into_iter()
-                    .chain(expand_topics(&generics_path, Some(&format!("{name}")))),
-            ),
+            expand_topics(&event_path, None, is_indexed)
+                .into_iter()
+                .chain(
+                    expand_topics(&command_path, None, is_indexed)
+                        .into_iter()
+                        .chain(expand_topics(
+                            &generics_path,
+                            Some(&format!("{name}")),
+                            is_indexed,
+                        )),
+                ),
         )
         .collect();
 
@@ -38,7 +82,17 @@ pub fn ts_xml_define(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-fn expand_topics(topic_file_path: &str, replace_generic_with: Option<&str>) -> Vec<TokenStream2> {
+fn expand_topics(
+    topic_file_path: &str,
+    replace_generic_with: Option<&str>,
+    is_indexed: bool,
+) -> Vec<TokenStream2> {
+    if !fs::exists(topic_file_path)
+        .unwrap_or_else(|_| panic!("Failed to read XML file: {}", topic_file_path))
+    {
+        return Vec::new();
+    }
+
     let xml_content = fs::read_to_string(topic_file_path)
         .unwrap_or_else(|_| panic!("Failed to read XML file: {}", topic_file_path));
 
@@ -133,7 +187,9 @@ fn expand_topics(topic_file_path: &str, replace_generic_with: Option<&str>) -> V
         fields.push(quote! { private_seqNum: i32 });
         fields.push(quote! { private_rcvStamp: f64 });
         fields.push(quote! { private_sndStamp: f64 });
-        fields.push(quote! { pub salIndex: i32 });
+        if is_indexed {
+            fields.push(quote! { pub salIndex: i32 });
+        }
         fields.push(quote! { private_efdStamp: f64 });
         fields.push(quote! { private_kafkaStamp: f64});
         fields.push(quote! { private_revCode: String });
