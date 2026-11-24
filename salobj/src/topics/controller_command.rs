@@ -76,7 +76,7 @@ impl<'a> ControllerCommand<'a> {
         }
     }
 
-    pub async fn ack<'si>(&mut self, command_ack: CommandAck) -> WriteTopicResult {
+    pub async fn ack(&mut self, command_ack: CommandAck) -> WriteTopicResult {
         let ackcmd = command_ack
             .to_ackcmd()
             .with_timestamps()
