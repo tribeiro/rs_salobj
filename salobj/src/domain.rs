@@ -14,7 +14,7 @@ use rdkafka::{
 };
 use std::env;
 use std::process;
-use whoami::{self, fallible};
+use whoami;
 
 const DEFAULT_LSST_KAFKA_CLIENT_ADDR: &str = "localhost:9092";
 const DEFAULT_LSST_SCHEMA_REGISTRY_URL: &str = "http://127.0.0.1:8081";
@@ -41,8 +41,8 @@ impl Domain {
 
     /// Return the default identify.
     pub fn get_default_identity(&self) -> String {
-        let username = whoami::username();
-        let hostname = fallible::hostname().unwrap_or("unknown".to_string());
+        let username = whoami::username().unwrap_or("unknown".to_string());
+        let hostname = whoami::hostname().unwrap_or("unknown".to_string());
         format!("{username}@{hostname}")
     }
 
