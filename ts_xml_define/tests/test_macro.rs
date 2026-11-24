@@ -1,4 +1,7 @@
-use serde::Deserialize;
+use base_topic_derive::BaseSALTopic;
+use chrono::Utc;
+use salobj::topics::base_sal_topic::BaseSALTopic;
+use serde::{Deserialize, Serialize};
 use ts_xml_define::ts_xml_define;
 
 ts_xml_define!(Test);
@@ -36,7 +39,7 @@ fn test_command_set_arrays() {
 #[test]
 fn test_command_fault() {
     let fault = TestCommandFault::default();
-    assert_eq!(fault.private_sndStamp, 0.);
+    assert_eq!(fault.private_snd_stamp, 0.);
 }
 
 #[test]
@@ -48,37 +51,37 @@ fn test_generic_command_start() {
 #[test]
 fn test_generic_command_enable() {
     let topic = TestCommandEnable::default();
-    assert_eq!(topic.private_sndStamp, 0.);
+    assert_eq!(topic.private_snd_stamp, 0.);
 }
 
 #[test]
 fn test_generic_command_disable() {
     let topic = TestCommandDisable::default();
-    assert_eq!(topic.private_sndStamp, 0.);
+    assert_eq!(topic.private_snd_stamp, 0.);
 }
 
 #[test]
 fn test_generic_command_standby() {
     let topic = TestCommandStandby::default();
-    assert_eq!(topic.private_sndStamp, 0.);
+    assert_eq!(topic.private_snd_stamp, 0.);
 }
 
 #[test]
 fn test_generic_command_enter_control() {
     let topic = TestCommandEnterControl::default();
-    assert_eq!(topic.private_sndStamp, 0.);
+    assert_eq!(topic.private_snd_stamp, 0.);
 }
 
 #[test]
 fn test_generic_command_exit_control() {
     let topic = TestCommandExitControl::default();
-    assert_eq!(topic.private_sndStamp, 0.);
+    assert_eq!(topic.private_snd_stamp, 0.);
 }
 
 #[test]
 fn test_generic_command_abort() {
     let topic = TestCommandAbort::default();
-    assert_eq!(topic.private_sndStamp, 0.);
+    assert_eq!(topic.private_snd_stamp, 0.);
 }
 
 #[test]

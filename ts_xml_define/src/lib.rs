@@ -184,18 +184,47 @@ fn expand_topics(
 
         fields.push(quote! { private_origin: i32 });
         fields.push(quote! { private_identity: String });
-        fields.push(quote! { private_seqNum: i32 });
-        fields.push(quote! { private_rcvStamp: f64 });
-        fields.push(quote! { private_sndStamp: f64 });
+
+        fields.push(quote! {
+            #[serde(rename = "private_seqNum")]
+            private_seq_num: i32
+        });
+        fields.push(quote! {
+            #[serde(rename = "private_rcvStamp")]
+            private_rcv_stamp: f64
+        });
+        fields.push(quote! {
+            #[serde(rename = "private_sndStamp")]
+            private_snd_stamp: f64
+        });
         if is_indexed {
-            fields.push(quote! { pub salIndex: i32 });
+            fields.push(quote! {
+                #[serde(rename = "salIndex")]
+                pub sal_index: i32
+            });
         }
-        fields.push(quote! { private_efdStamp: f64 });
-        fields.push(quote! { private_kafkaStamp: f64});
-        fields.push(quote! { private_revCode: String });
+        fields.push(quote! {
+            #[serde(rename = "private_efdStamp")]
+            private_efd_stamp: f64
+        });
+        fields.push(quote! {
+            #[serde(rename = "private_kafkaStamp")]
+            private_kafka_stamp: f64
+        });
+        fields.push(quote! {
+            #[serde(rename = "private_revCode")]
+            private_rev_code: String
+        });
+
+        let indexed_attr = if is_indexed {
+            quote! { #[base_sal_topic(indexed)] }
+        } else {
+            quote! {}
+        };
 
         structs.push(quote! {
-            #[derive(Debug, Clone, Default, Deserialize)]
+            #[derive(Clone, Debug, Default, Deserialize, Serialize, BaseSALTopic)]
+            #indexed_attr
             pub struct #topic_ident {
                 #(#fields),*
             }

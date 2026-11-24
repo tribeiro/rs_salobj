@@ -15,3 +15,6 @@ proc-macro2 = "1.0.106"
 
 [dev-dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
+salobj = { path = "../salobj/"}
+base_topic_derive = { version = "0.1.0", path = "../base_topic_derive" }
+chrono = "0.4.45"
