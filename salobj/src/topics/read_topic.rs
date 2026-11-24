@@ -1,4 +1,3 @@
-use rand::Rng;
 use std::time::{Duration, Instant};
 
 use crate::{
@@ -8,6 +7,7 @@ use crate::{
     topics::base_topic::BaseTopic,
 };
 use apache_avro::types::Value;
+use rand::Rng;
 use rdkafka::{
     config::FromClientConfig,
     consumer::{Consumer, StreamConsumer},
@@ -69,7 +69,7 @@ impl<'a> ReadTopic<'a> {
         let consumer_configuration = {
             let mut consumer_configuration = domain.get_consumer_configuration();
             let mut rng = rand::rng();
-            let random_number: u32 = rng.random();
+            let random_number: u32 = rng.next_u32();
             consumer_configuration.set(
                 "group.id",
                 format!(

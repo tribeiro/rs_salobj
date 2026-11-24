@@ -3,6 +3,7 @@ use apache_avro::{
     types::{Record, Value},
     Schema,
 };
+use rand::RngExt;
 
 use crate::{
     domain::Domain,
@@ -12,7 +13,6 @@ use crate::{
     utils::types::WriteTopicResult,
 };
 use chrono::Utc;
-use rand::Rng;
 use rdkafka::{
     config::FromClientConfig,
     error::KafkaResult,
@@ -52,7 +52,7 @@ impl BaseTopic for WriteTopic<'_> {}
 impl<'a> WriteTopic<'a> {
     pub fn new(topic_name: &str, sal_info: &SalInfo, domain: &Domain) -> WriteTopic<'a> {
         let mut rng = rand::rng();
-        let seq_num: i32 = rng.random::<i32>().abs();
+        let seq_num: i32 = rng.random::<i32>();
         // FIXME: This needs to be properly handled!
         let schema = sal_info
             .get_topic_info(topic_name)

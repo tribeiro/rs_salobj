@@ -73,11 +73,15 @@ mod tests {
             Codec::Deflate(DeflateSettings::new(
                 miniz_oxide::deflate::CompressionLevel::NoCompression,
             )),
-        );
-        writer.append(summary_state_record).unwrap();
+        )
+        .unwrap();
+        writer.append_value(summary_state_record).unwrap();
 
         let input = writer.into_inner().unwrap();
-        let reader = Reader::with_schema(summary_state_schema, &input[..]).unwrap();
+        let reader = Reader::builder(&input[..])
+            .reader_schema(summary_state_schema)
+            .build()
+            .unwrap();
 
         for record in reader {
             let summary_state = from_value::<SummaryState>(&record.unwrap()).unwrap();

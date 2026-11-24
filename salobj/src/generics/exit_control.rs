@@ -49,11 +49,15 @@ mod tests {
             Codec::Deflate(DeflateSettings::new(
                 miniz_oxide::deflate::CompressionLevel::NoCompression,
             )),
-        );
-        writer.append(topic_record).unwrap();
+        )
+        .unwrap();
+        writer.append_value(topic_record).unwrap();
 
         let input = writer.into_inner().unwrap();
-        let reader = Reader::with_schema(topic_schema, &input[..]).unwrap();
+        let reader = Reader::builder(&input[..])
+            .reader_schema(topic_schema)
+            .build()
+            .unwrap();
 
         for record in reader {
             let topic = from_value::<ExitControl>(&record.unwrap()).unwrap();

@@ -102,11 +102,15 @@ mod tests {
             Codec::Deflate(DeflateSettings::new(
                 miniz_oxide::deflate::CompressionLevel::NoCompression,
             )),
-        );
-        writer.append(record).unwrap();
+        )
+        .unwrap();
+        writer.append_value(record).unwrap();
 
         let input = writer.into_inner().unwrap();
-        let reader = Reader::with_schema(schema, &input[..]).unwrap();
+        let reader = Reader::builder(&input[..])
+            .reader_schema(schema)
+            .build()
+            .unwrap();
 
         for record in reader {
             let log_message = from_value::<LogMessage>(&record.unwrap()).unwrap();
