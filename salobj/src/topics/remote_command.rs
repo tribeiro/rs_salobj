@@ -120,7 +120,7 @@ impl<'a> RemoteCommand<'a> {
         }
     }
 
-    pub async fn run_typed<'b, T>(
+    pub async fn run_typed<T>(
         &mut self,
         data: &T,
         timeout: Duration,
