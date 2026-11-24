@@ -28,7 +28,7 @@ mod component_info;
 pub mod controller;
 pub mod csc;
 pub mod domain;
-mod error;
+pub mod error;
 pub mod generics;
 pub mod remote;
 pub mod sal_enums;
