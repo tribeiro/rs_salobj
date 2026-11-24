@@ -4,7 +4,7 @@ use crate::{
 use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
 use chrono::Utc;
 
-#[add_sal_topic_fields]
+#[add_sal_topic_fields(indexed)]
 #[derive(Debug, Default, Deserialize, Serialize, BaseSALTopic)]
 pub struct SummaryState {
     #[serde(rename = "summaryState")]
