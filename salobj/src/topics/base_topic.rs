@@ -16,7 +16,7 @@ pub trait BaseTopic {
     /// record, which can be slow to do every single time you want to generate
     /// a topic record. Instead, use this method when creating the topic and
     /// store a copy in your class, then use `get_data_type` to retrieve it.
-    fn make_data_type(avro_schema: &apache_avro::Schema) -> Option<Record> {
+    fn make_data_type(avro_schema: &apache_avro::Schema) -> Option<Record<'_>> {
         Record::new(avro_schema)
     }
 }

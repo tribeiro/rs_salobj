@@ -1,10 +1,7 @@
-use crate::{
-    sal_enums::State, topics::base_sal_topic::BaseSALTopic, utils::xml_utils::get_default_sal_index,
-};
+use crate::sal_enums::State;
 use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
-use chrono::Utc;
 
-#[add_sal_topic_fields]
+#[add_sal_topic_fields(indexed)]
 #[derive(Debug, Default, Deserialize, Serialize, BaseSALTopic)]
 pub struct SummaryState {
     #[serde(rename = "summaryState")]
@@ -34,6 +31,7 @@ mod tests {
 
     use super::*;
     use crate::component_info::ComponentInfo;
+    use crate::topics::base_sal_topic::BaseSALTopic;
     use apache_avro::from_value;
     use apache_avro::DeflateSettings;
     use apache_avro::Reader;
@@ -73,11 +71,15 @@ mod tests {
             Codec::Deflate(DeflateSettings::new(
                 miniz_oxide::deflate::CompressionLevel::NoCompression,
             )),
-        );
-        writer.append(summary_state_record).unwrap();
+        )
+        .unwrap();
+        writer.append_value(summary_state_record).unwrap();
 
         let input = writer.into_inner().unwrap();
-        let reader = Reader::with_schema(summary_state_schema, &input[..]).unwrap();
+        let reader = Reader::builder(&input[..])
+            .reader_schema(summary_state_schema)
+            .build()
+            .unwrap();
 
         for record in reader {
             let summary_state = from_value::<SummaryState>(&record.unwrap()).unwrap();

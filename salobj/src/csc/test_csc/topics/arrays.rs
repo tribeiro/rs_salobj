@@ -1,8 +1,6 @@
-use crate::{topics::base_sal_topic::BaseSALTopic, utils::xml_utils::get_default_sal_index};
 use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
-use chrono::Utc;
 
-#[add_sal_topic_fields]
+#[add_sal_topic_fields(indexed)]
 #[derive(Debug, Deserialize, Serialize, BaseSALTopic, Clone)]
 pub struct Arrays {
     pub boolean0: Vec<bool>,
@@ -15,7 +13,7 @@ pub struct Arrays {
     #[serde(rename = "unsignedShort0")]
     pub unsigned_short0: Vec<u16>,
     #[serde(rename = "unsignedInt0")]
-    pub unsigned_int0: Vec<u64>,
+    pub unsigned_int0: Vec<u32>,
     pub float0: Vec<f32>,
     pub double0: Vec<f64>,
     // pub string0: String,

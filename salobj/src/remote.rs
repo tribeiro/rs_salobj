@@ -194,11 +194,13 @@ impl<'b> Remote<'b> {
         event_name: &str,
         flush: bool,
         timeout: Duration,
-    ) -> std::result::Result<Option<Value>, ()> {
+    ) -> std::result::Result<Option<Value>, SalObjError> {
         if let Some(event_reader) = self.events.get_mut(event_name) {
             Ok(event_reader.pop_front(flush, timeout).await)
         } else {
-            Err(())
+            Err(SalObjError::new(&format!(
+                "No event reader for {event_name}."
+            )))
         }
     }
 
@@ -207,11 +209,13 @@ impl<'b> Remote<'b> {
         event_name: &str,
         flush: bool,
         timeout: Duration,
-    ) -> std::result::Result<Option<Value>, ()> {
+    ) -> std::result::Result<Option<Value>, SalObjError> {
         if let Some(event_reader) = self.events.get_mut(event_name) {
             Ok(event_reader.pop_back(flush, timeout).await)
         } else {
-            Err(())
+            Err(SalObjError::new(&format!(
+                "No event reader for {event_name}."
+            )))
         }
     }
 
@@ -220,11 +224,13 @@ impl<'b> Remote<'b> {
         telemetry_name: &str,
         flush: bool,
         timeout: Duration,
-    ) -> std::result::Result<Option<Value>, ()> {
+    ) -> std::result::Result<Option<Value>, SalObjError> {
         if let Some(telemetry_reader) = self.telemetry.get_mut(telemetry_name) {
             Ok(telemetry_reader.pop_front(flush, timeout).await)
         } else {
-            Err(())
+            Err(SalObjError::new(&format!(
+                "No telemetry reader for {telemetry_name}."
+            )))
         }
     }
 
@@ -233,11 +239,13 @@ impl<'b> Remote<'b> {
         telemetry_name: &str,
         flush: bool,
         timeout: Duration,
-    ) -> std::result::Result<Option<Value>, ()> {
+    ) -> std::result::Result<Option<Value>, SalObjError> {
         if let Some(telemetry_reader) = self.telemetry.get_mut(telemetry_name) {
             Ok(telemetry_reader.pop_back(flush, timeout).await)
         } else {
-            Err(())
+            Err(SalObjError::new(&format!(
+                "No telemetry reader for {telemetry_name}."
+            )))
         }
     }
 }

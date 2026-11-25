@@ -28,7 +28,7 @@ mod component_info;
 pub mod controller;
 pub mod csc;
 pub mod domain;
-mod error;
+pub mod error;
 pub mod generics;
 pub mod remote;
 pub mod sal_enums;
@@ -37,7 +37,23 @@ mod sal_subsystem;
 pub mod topics;
 pub mod utils;
 
-pub use base_topic_derive::BaseSALTopic;
+// Lets the `::salobj::...` paths emitted by `base_topic_derive` and
+// `ts_xml_define` resolve when those macros are used inside salobj itself.
+extern crate self as salobj;
+
+pub use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
+
+/// Re-exports used by code that salobj's macros generate.
+///
+/// Not public API: this lets generated code reach `chrono` and `serde`
+/// through `::salobj`, so crates using the macros don't need their own
+/// direct dependency on these crates.
+#[doc(hidden)]
+pub mod __private {
+    pub use chrono;
+    pub use serde;
+    pub use serde_derive::{Deserialize, Serialize};
+}
 
 #[cfg(test)]
 mod tests {

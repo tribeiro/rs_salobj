@@ -288,6 +288,8 @@ impl SalInfo {
                 schema_type: SchemaType::Avro,
                 schema: schema.to_owned(),
                 references: vec![],
+                properties: None,
+                tags: None,
             };
 
             (

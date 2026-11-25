@@ -1,8 +1,6 @@
-use crate::{topics::base_sal_topic::BaseSALTopic, utils::xml_utils::get_default_sal_index};
 use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
-use chrono::Utc;
 
-#[add_sal_topic_fields]
+#[add_sal_topic_fields(indexed)]
 #[derive(Debug, Deserialize, Serialize, BaseSALTopic, Default, Clone)]
 pub struct Scalars {
     pub boolean0: bool,
@@ -26,6 +24,7 @@ mod tests {
 
     use super::*;
     use crate::component_info::ComponentInfo;
+    use crate::topics::base_sal_topic::BaseSALTopic;
     use apache_avro::from_value;
     use apache_avro::DeflateSettings;
     use apache_avro::Reader;
@@ -99,11 +98,15 @@ mod tests {
             topic_schema,
             Vec::new(),
             Codec::Deflate(DeflateSettings::new(CompressionLevel::NoCompression)),
-        );
-        writer.append(topic_record).unwrap();
+        )
+        .unwrap();
+        writer.append_value(topic_record).unwrap();
 
         let input = writer.into_inner().unwrap();
-        let reader = Reader::with_schema(topic_schema, &input[..]).unwrap();
+        let reader = Reader::builder(&input[..])
+            .reader_schema(topic_schema)
+            .build()
+            .unwrap();
 
         for record in reader {
             let topic = from_value::<Scalars>(&record.unwrap()).unwrap();
