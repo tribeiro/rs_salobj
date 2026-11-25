@@ -1,4 +1,4 @@
-use crate::{sal_enums::State, utils::xml_utils::get_default_sal_index};
+use crate::sal_enums::State;
 use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
 
 #[add_sal_topic_fields(indexed)]
