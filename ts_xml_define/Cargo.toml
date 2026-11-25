@@ -16,4 +16,3 @@ proc-macro2 = "1.0.107"
 [dev-dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
 salobj = { path = "../salobj/"}
-base_topic_derive = { version = "0.1.0", path = "../base_topic_derive" }
