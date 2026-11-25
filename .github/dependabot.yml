@@ -1,0 +1,34 @@
+version: 2
+updates:
+  # Rust dependencies. The workspace root covers every member crate
+  # (salobj, base_topic_derive, handle_command, ts_xml_define) through the
+  # shared root Cargo.lock.
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps"
+    groups:
+      # Patch releases are semver-compatible for both 0.x and >=1.0 crates,
+      # so batch them into a single PR. Minor/major bumps (which are breaking
+      # for 0.x crates such as apache-avro, rdkafka or rand) still get one PR
+      # each so they can be reviewed and fixed individually.
+      cargo-patch:
+        update-types:
+          - "patch"
+
+  # GitHub Actions used by the workflows in .github/workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
