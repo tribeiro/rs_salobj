@@ -223,7 +223,17 @@ fn expand_topics(
         };
 
         structs.push(quote! {
-            #[derive(Clone, Debug, Default, Deserialize, Serialize, ::salobj::BaseSALTopic)]
+            // Every path goes through `::salobj` so callers only need a
+            // `salobj` dependency and no imports at the call site.
+            #[derive(
+                Clone,
+                Debug,
+                Default,
+                ::salobj::__private::Deserialize,
+                ::salobj::__private::Serialize,
+                ::salobj::BaseSALTopic,
+            )]
+            #[serde(crate = "::salobj::__private::serde")]
             #indexed_attr
             pub struct #topic_ident {
                 #(#fields),*
