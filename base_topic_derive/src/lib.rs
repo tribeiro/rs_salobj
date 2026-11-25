@@ -38,7 +38,7 @@ fn impl_base_topic_trait(ast: DeriveInput, indexed: bool) -> TokenStream {
 
     // generate impl
     quote::quote!(
-        impl BaseSALTopic for #ident {
+        impl ::salobj::topics::base_sal_topic::BaseSALTopic for #ident {
             fn get_name(&self) -> &'static str {
                 #ident_str
             }
