@@ -37,7 +37,11 @@ mod sal_subsystem;
 pub mod topics;
 pub mod utils;
 
-pub use base_topic_derive::BaseSALTopic;
+// Lets the `::salobj::...` paths emitted by `base_topic_derive` and
+// `ts_xml_define` resolve when those macros are used inside salobj itself.
+extern crate self as salobj;
+
+pub use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
 
 #[cfg(test)]
 mod tests {
