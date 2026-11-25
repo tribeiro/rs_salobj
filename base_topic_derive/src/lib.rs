@@ -178,7 +178,10 @@ pub fn add_sal_topic_fields(args: TokenStream, input: TokenStream) -> TokenStrea
                     fields.named.push(
                         syn::Field::parse_named
                             .parse2(quote! {
-                                #[serde(rename = "salIndex", default = "get_default_sal_index")]
+                                #[serde(
+                                    rename = "salIndex",
+                                    default = "::salobj::utils::xml_utils::get_default_sal_index"
+                                )]
                                 sal_index: i32
                             })
                             .unwrap(),
