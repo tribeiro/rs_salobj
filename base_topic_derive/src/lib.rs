@@ -58,7 +58,8 @@ fn impl_base_topic_trait(ast: DeriveInput, indexed: bool) -> TokenStream {
                 self.private_rcv_stamp
             }
             fn with_timestamps(mut self) -> Self {
-                let timestamp = Utc::now().timestamp_micros() as f64 * 1e-6;
+                let timestamp =
+                    ::salobj::__private::chrono::Utc::now().timestamp_micros() as f64 * 1e-6;
                 self.private_snd_stamp = timestamp;
                 self.private_efd_stamp = timestamp;
                 self.private_kafka_stamp = timestamp;
