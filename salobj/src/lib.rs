@@ -43,6 +43,16 @@ extern crate self as salobj;
 
 pub use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
 
+/// Re-exports used by code that salobj's macros generate.
+///
+/// Not public API: this lets generated code reach `chrono` and `serde`
+/// through `::salobj`, so crates using the macros don't need their own
+/// direct dependency on these crates.
+#[doc(hidden)]
+pub mod __private {
+    pub use chrono;
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
