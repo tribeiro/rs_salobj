@@ -1991,7 +1991,6 @@ dependencies = [
  "quote",
  "roxmltree",
  "salobj",
- "serde",
  "syn 3.0.10",
 ]
 
