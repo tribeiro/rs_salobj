@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use ts_xml_define::ts_xml_define;
 
 ts_xml_define!(Test);
