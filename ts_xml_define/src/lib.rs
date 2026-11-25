@@ -223,7 +223,7 @@ fn expand_topics(
         };
 
         structs.push(quote! {
-            #[derive(Clone, Debug, Default, Deserialize, Serialize, BaseSALTopic)]
+            #[derive(Clone, Debug, Default, Deserialize, Serialize, ::salobj::BaseSALTopic)]
             #indexed_attr
             pub struct #topic_ident {
                 #(#fields),*
