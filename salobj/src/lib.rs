@@ -51,6 +51,8 @@ pub use base_topic_derive::{add_sal_topic_fields, BaseSALTopic};
 #[doc(hidden)]
 pub mod __private {
     pub use chrono;
+    pub use serde;
+    pub use serde_derive::{Deserialize, Serialize};
 }
 
 #[cfg(test)]
