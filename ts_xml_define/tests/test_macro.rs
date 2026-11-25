@@ -1,6 +1,5 @@
 use base_topic_derive::BaseSALTopic;
 use chrono::Utc;
-use salobj::topics::base_sal_topic::BaseSALTopic;
 use serde::{Deserialize, Serialize};
 use ts_xml_define::ts_xml_define;
 
