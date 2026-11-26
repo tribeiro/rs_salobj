@@ -12,21 +12,21 @@ use crate::{
     utils::{command_ack::CommandAck, types::WriteTopicResult},
 };
 
-pub struct ControllerCommand<'a> {
+pub struct ControllerCommand {
     command_name: String,
-    command_reader: ReadTopic<'a>,
-    ack_writer: WriteTopic<'a>,
+    command_reader: ReadTopic,
+    ack_writer: WriteTopic,
     command_type: usize,
     origin: u32,
     identity: String,
 }
 
-impl<'a> ControllerCommand<'a> {
+impl ControllerCommand {
     pub fn new(
         command_name: &str,
         domain: &Domain,
         sal_info: &SalInfo,
-    ) -> SalObjResult<ControllerCommand<'a>> {
+    ) -> SalObjResult<ControllerCommand> {
         if let Some(command_type) = sal_info.get_command_type(command_name) {
             Ok(ControllerCommand {
                 command_name: command_name.to_owned(),
