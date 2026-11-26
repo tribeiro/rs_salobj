@@ -23,7 +23,7 @@ log = "0.4.34"
 simple_logger = "5.2.0"
 rand = "0.10.3"
 futures = "0.3.34"
-rdkafka = { version = "0.39.0", features = ["cmake-build", "ssl"] }
+rdkafka = { version = "0.40.0", features = ["cmake-build", "ssl"] }
 miniz_oxide = "0.9.1"
 
 [dev-dependencies]
