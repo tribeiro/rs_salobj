@@ -26,7 +26,7 @@ use serde::Serialize;
 use std::fmt::Debug;
 
 /// Base struct for writing a topic.
-pub struct WriteTopic<'a> {
+pub struct WriteTopic {
     /// The name of the topic.
     topic_name: String,
     /// Index of the CSC, must be 0 if CSC is not indexed.
@@ -42,15 +42,15 @@ pub struct WriteTopic<'a> {
     /// Sequence number of the written samples. This number is incremented
     /// every time a sample is published.
     seq_num: i32,
-    encoder: AvroEncoder<'a>,
+    encoder: AvroEncoder,
     schema_registry_topic_name: String,
     schema: Schema,
 }
 
-impl BaseTopic for WriteTopic<'_> {}
+impl BaseTopic for WriteTopic {}
 
-impl<'a> WriteTopic<'a> {
-    pub fn new(topic_name: &str, sal_info: &SalInfo, domain: &Domain) -> WriteTopic<'a> {
+impl WriteTopic {
+    pub fn new(topic_name: &str, sal_info: &SalInfo, domain: &Domain) -> WriteTopic {
         let mut rng = rand::rng();
         let seq_num: i32 = rng.random::<i32>();
         // FIXME: This needs to be properly handled!
