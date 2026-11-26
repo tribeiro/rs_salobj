@@ -18,18 +18,18 @@ use crate::{
 use apache_avro::{to_value, types::Value};
 use serde::Serialize;
 
-pub struct Controller<'a> {
-    pub commands: ControllerCommandSet<'a>,
-    pub events: WriteTopicSet<'a>,
-    pub telemetry: WriteTopicSet<'a>,
+pub struct Controller {
+    pub commands: ControllerCommandSet,
+    pub events: WriteTopicSet,
+    pub telemetry: WriteTopicSet,
 }
 
-impl<'a> Controller<'a> {
+impl Controller {
     pub async fn new(
         domain: &mut domain::Domain,
         name: &str,
         index: isize,
-    ) -> SalObjResult<Controller<'a>> {
+    ) -> SalObjResult<Controller> {
         let sal_info = sal_info::SalInfo::new(name, index)?;
 
         if let Err(error) = domain.register_topics(&sal_info.get_topics_name()).await {
