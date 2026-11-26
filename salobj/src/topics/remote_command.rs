@@ -18,13 +18,13 @@ use std::{collections::HashMap, time::Duration};
 
 pub type AckCmdResult = std::result::Result<CommandAck, CommandAck>;
 
-pub struct RemoteCommand<'a> {
-    command_writer: WriteTopic<'a>,
-    ack_reader: ReadTopic<'a>,
+pub struct RemoteCommand {
+    command_writer: WriteTopic,
+    ack_reader: ReadTopic,
 }
 
-impl<'a> RemoteCommand<'a> {
-    pub fn new(command_name: &str, domain: &Domain, sal_info: &SalInfo) -> RemoteCommand<'a> {
+impl RemoteCommand {
+    pub fn new(command_name: &str, domain: &Domain, sal_info: &SalInfo) -> RemoteCommand {
         RemoteCommand {
             command_writer: WriteTopic::new(command_name, sal_info, domain),
             ack_reader: ReadTopic::new("ackcmd", sal_info, domain, 0),
