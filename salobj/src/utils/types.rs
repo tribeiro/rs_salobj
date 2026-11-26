@@ -14,10 +14,10 @@ use crate::{
 };
 use serde::{Deserialize, Serialize, Serializer};
 
-pub type WriteTopicSet<'a> = HashMap<String, WriteTopic<'a>>;
-pub type ReadTopicSet<'a> = HashMap<String, ReadTopic<'a>>;
-pub type RemoteCommandSet<'a> = HashMap<String, RemoteCommand<'a>>;
-pub type ControllerCommandSet<'a> = HashMap<String, ControllerCommand<'a>>;
+pub type WriteTopicSet = HashMap<String, WriteTopic>;
+pub type ReadTopicSet = HashMap<String, ReadTopic>;
+pub type RemoteCommandSet = HashMap<String, RemoteCommand>;
+pub type ControllerCommandSet = HashMap<String, ControllerCommand>;
 pub type WriteTopicResult = Result<i32, SalObjError>;
 pub type ControllerCallbackFunc = Option<Box<dyn Fn(Value) -> Pin<Box<dyn Future<Output = ()>>>>>;
 pub type SALSubsystemInfoRet = Result<SALSubsystemInfo, Box<dyn Error>>;
