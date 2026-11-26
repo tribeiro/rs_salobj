@@ -21,7 +21,7 @@ use std::collections::VecDeque;
 const DEFAULT_QUEUE_LEN: usize = 100;
 
 /// Base struct for reading a topic.
-pub struct ReadTopic<'a> {
+pub struct ReadTopic {
     /// The name of the topic.
     topic_name: String,
     subject_name: String,
@@ -45,19 +45,19 @@ pub struct ReadTopic<'a> {
     data_queue: VecDeque<Value>,
     /// Topic consumer.
     consumer: KafkaResult<StreamConsumer>,
-    decoder: AvroDecoder<'a>,
+    decoder: AvroDecoder,
     sal_index: Option<i32>,
 }
 
-impl BaseTopic for ReadTopic<'_> {}
+impl BaseTopic for ReadTopic {}
 
-impl<'a> ReadTopic<'a> {
+impl ReadTopic {
     pub fn new(
         topic_name: &str,
         sal_info: &SalInfo,
         domain: &Domain,
         max_history: usize,
-    ) -> ReadTopic<'a> {
+    ) -> ReadTopic {
         if sal_info.is_indexed() && sal_info.get_index() == 0 && max_history > 1 {
             panic!(
                 "max_history={max_history} must be 0 or 1 for an indexed component with index=0."
