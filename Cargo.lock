@@ -98,6 +98,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "apache-avro"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99df1cb179dda2bed7b366b43b6a319349e4c0e920e287f09b285f852db6884e"
+dependencies = [
+ "bigdecimal",
+ "bon",
+ "digest",
+ "log",
+ "miniz_oxide",
+ "num-bigint 0.4.8",
+ "ouroboros",
+ "quad-rand",
+ "rand",
+ "regex-lite",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "strum",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1421,7 +1445,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 name = "salobj"
 version = "0.1.0"
 dependencies = [
- "apache-avro",
+ "apache-avro 0.23.0",
  "base_topic_derive",
  "chrono",
  "clap",
@@ -1458,7 +1482,7 @@ version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f49a1bb385b8c10df239624527d813e01209a230d19ea2c85a9e249a7444b1ec"
 dependencies = [
- "apache-avro",
+ "apache-avro 0.22.0",
  "byteorder",
  "dashmap",
  "futures",
