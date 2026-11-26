@@ -28,14 +28,14 @@ use std::{fmt::Debug, time::Duration};
 ///
 /// If a SAL component listens to or commands other SAL components
 /// then it will have one Remote for each such component.
-pub struct Remote<'b> {
+pub struct Remote {
     sal_info: sal_info::SalInfo,
-    commands: RemoteCommandSet<'b>,
-    events: ReadTopicSet<'b>,
-    telemetry: ReadTopicSet<'b>,
+    commands: RemoteCommandSet,
+    events: ReadTopicSet,
+    telemetry: ReadTopicSet,
 }
 
-impl<'b> Remote<'b> {
+impl Remote {
     pub async fn new(
         domain: &mut domain::Domain,
         name: &str,
@@ -44,7 +44,7 @@ impl<'b> Remote<'b> {
         include: Vec<String>,
         exclude: Vec<String>,
         evt_max_history: usize,
-    ) -> SalObjResult<Remote<'b>> {
+    ) -> SalObjResult<Remote> {
         if !include.is_empty() && !exclude.is_empty() {
             panic!("include_only and exclude can not both have elements.");
         } else if !include.is_empty() || !exclude.is_empty() {
@@ -109,7 +109,7 @@ impl<'b> Remote<'b> {
         domain: &mut domain::Domain,
         name: &str,
         index: isize,
-    ) -> SalObjResult<Remote<'b>> {
+    ) -> SalObjResult<Remote> {
         Remote::new(domain, name, index, false, Vec::new(), Vec::new(), 1).await
     }
 
