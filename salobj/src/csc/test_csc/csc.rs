@@ -60,11 +60,11 @@ struct TelemetryPayload {
     pub data: TestTelemetry,
 }
 
-pub struct TestCSC<'a> {
+pub struct TestCSC {
     summary_state: State,
     domain: Domain,
     index: isize,
-    controller: Controller<'a>,
+    controller: Controller,
     controller_command_ack: Option<ControllerCommandAck>,
     heartbeat_task: Option<task::JoinHandle<()>>,
     telemetry_loop_task: Option<task::JoinHandle<()>>,
@@ -74,8 +74,8 @@ pub struct TestCSC<'a> {
     telemetry_receiver: watch::Receiver<TelemetryPayload>,
 }
 
-impl<'a> TestCSC<'a> {
-    pub async fn new(index: isize) -> SalObjResult<TestCSC<'a>> {
+impl TestCSC {
+    pub async fn new(index: isize) -> SalObjResult<TestCSC> {
         let mut domain = Domain::new();
         let controller = Controller::new(&mut domain, "Test", index).await?;
         let (command_sender, command_receiver): (
@@ -599,7 +599,7 @@ impl<'a> TestCSC<'a> {
     }
 }
 
-impl BaseCSC for TestCSC<'_> {
+impl BaseCSC for TestCSC {
     fn get_current_state(&self) -> State {
         self.summary_state
     }

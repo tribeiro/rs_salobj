@@ -283,14 +283,11 @@ impl SalInfo {
         let topic_schema = self.component_info.get_topic_schemas();
 
         join_all(topic_schema.iter().map(|(topic, schema)| async {
-            let supplied_schema = SuppliedSchema {
-                name: Some(self.make_schema_registry_topic_name(topic)),
-                schema_type: SchemaType::Avro,
-                schema: schema.to_owned(),
-                references: vec![],
-                properties: None,
-                tags: None,
-            };
+            let supplied_schema = SuppliedSchema::new(
+                Some(self.make_schema_registry_topic_name(topic)),
+                SchemaType::Avro,
+                schema.to_owned(),
+            );
 
             (
                 topic.to_owned(),
@@ -306,12 +303,12 @@ impl SalInfo {
         SrSettings::new(Domain::get_schema_registry_url())
     }
 
-    pub fn make_encoder<'b>() -> AvroEncoder<'b> {
+    pub fn make_encoder() -> AvroEncoder {
         let sr_settings = SalInfo::make_sr_settings();
         AvroEncoder::new(sr_settings)
     }
 
-    pub fn make_decoder<'b>() -> AvroDecoder<'b> {
+    pub fn make_decoder() -> AvroDecoder {
         let sr_settings = SalInfo::make_sr_settings();
         AvroDecoder::new(sr_settings)
     }
