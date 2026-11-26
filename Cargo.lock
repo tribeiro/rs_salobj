@@ -75,30 +75,6 @@ dependencies = [
 
 [[package]]
 name = "apache-avro"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "312c1ea69e5fe9966e0029fb95aca8790100b85aff4f0d3b00a9337c74069a9c"
-dependencies = [
- "bigdecimal",
- "bon",
- "digest",
- "log",
- "miniz_oxide",
- "num-bigint 0.4.8",
- "ouroboros",
- "quad-rand",
- "rand",
- "regex-lite",
- "serde",
- "serde_bytes",
- "serde_json",
- "strum",
- "thiserror",
- "uuid",
-]
-
-[[package]]
-name = "apache-avro"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99df1cb179dda2bed7b366b43b6a319349e4c0e920e287f09b285f852db6884e"
@@ -1445,7 +1421,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 name = "salobj"
 version = "0.1.0"
 dependencies = [
- "apache-avro 0.23.0",
+ "apache-avro",
  "base_topic_derive",
  "chrono",
  "clap",
@@ -1478,11 +1454,11 @@ dependencies = [
 
 [[package]]
 name = "schema_registry_converter"
-version = "6.0.0"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f49a1bb385b8c10df239624527d813e01209a230d19ea2c85a9e249a7444b1ec"
+checksum = "6d985d8fd470858f1dada72c849dfcf1fdef068cdcedd5fe8fa48a543f2816d1"
 dependencies = [
- "apache-avro 0.22.0",
+ "apache-avro",
  "byteorder",
  "dashmap",
  "futures",
