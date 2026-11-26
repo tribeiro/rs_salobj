@@ -306,12 +306,12 @@ impl SalInfo {
         SrSettings::new(Domain::get_schema_registry_url())
     }
 
-    pub fn make_encoder<'b>() -> AvroEncoder<'b> {
+    pub fn make_encoder() -> AvroEncoder {
         let sr_settings = SalInfo::make_sr_settings();
         AvroEncoder::new(sr_settings)
     }
 
-    pub fn make_decoder<'b>() -> AvroDecoder<'b> {
+    pub fn make_decoder() -> AvroDecoder {
         let sr_settings = SalInfo::make_sr_settings();
         AvroDecoder::new(sr_settings)
     }
