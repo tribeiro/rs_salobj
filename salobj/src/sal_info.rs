@@ -283,14 +283,11 @@ impl SalInfo {
         let topic_schema = self.component_info.get_topic_schemas();
 
         join_all(topic_schema.iter().map(|(topic, schema)| async {
-            let supplied_schema = SuppliedSchema {
-                name: Some(self.make_schema_registry_topic_name(topic)),
-                schema_type: SchemaType::Avro,
-                schema: schema.to_owned(),
-                references: vec![],
-                properties: None,
-                tags: None,
-            };
+            let supplied_schema = SuppliedSchema::new(
+                Some(self.make_schema_registry_topic_name(topic)),
+                SchemaType::Avro,
+                schema.to_owned(),
+            );
 
             (
                 topic.to_owned(),
